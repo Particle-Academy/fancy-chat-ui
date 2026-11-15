@@ -1,0 +1,5 @@
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
+
+// vitest runs without globals, so testing-library cannot register its own cleanup.
+afterEach(() => cleanup());

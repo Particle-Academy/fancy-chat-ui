@@ -19,3 +19,7 @@ export { AgentThread, type AgentThreadProps } from "./AgentThread";
 export { AgentComposer, EMPTY_PROMPT_DRAFT, type AgentComposerProps, type AgentComposerSendInput, type SendOutcome } from "./AgentComposer";
 export { useAgentThread, type AgentThreadApi, type UseAgentThreadOptions } from "./useAgentThread";
 export { actionableIn } from "./actionable";
+export { QueueBar, queuedMessages, type QueueBarProps } from "./QueueBar";
+export { UndoCountdown, type UndoCountdownProps } from "./UndoCountdown";
+export { createTriggerRegistry, serializePill, type PillRef, type TriggerDefinition, type TriggerRegistry } from "./triggers";
+export { defineSurfaceProfile, profileAllowsPart, type SurfaceLayout, type SurfaceProfile } from "./profile";

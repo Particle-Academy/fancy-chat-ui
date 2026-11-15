@@ -41,6 +41,7 @@ export interface ThreadStoreOptions {
 }
 
 export interface ThreadStore {
+  /** Start, or join a running store. Every start needs its stop; the last stop disconnects. */
   start(): void;
   stop(): void;
   getSnapshot(): ThreadSnapshot;
@@ -71,6 +72,7 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
   let stopNudge: (() => void) | null = null;
   let repairing = false;
   let running = false;
+  let users = 0;
 
   const publish = (patch: Partial<ThreadSnapshot>, changedRows: boolean) => {
     snapshot = {
@@ -126,6 +128,7 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
 
   return {
     start() {
+      users += 1;
       if (running) return;
       running = true;
       stopSub = options.transport.subscribe({
@@ -141,6 +144,8 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
         }) ?? null;
     },
     stop() {
+      users = Math.max(0, users - 1);
+      if (users > 0) return;
       running = false;
       stopSub?.();
       stopNudge?.();

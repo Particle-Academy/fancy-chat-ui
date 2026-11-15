@@ -38,6 +38,21 @@ export interface ChatLabels {
   sendFailed: (reason: string) => string;
   superseded: string;
   retracted: string;
+  queued: (n: number) => string;
+  queueSendAll: string;
+  queueDiscard: string;
+  queueSendNow: string;
+  queueInterrupt: string;
+  queueUnsend: string;
+  undoOpen: (seconds: number) => string;
+  undoCommitted: string;
+  undoReverted: string;
+  undoRevert: string;
+  typedApproval: (decision: string) => string;
+  showEarlierVersion: string;
+  hideEarlierVersion: string;
+  edit: string;
+  heldOnApproval: string;
 }
 
 export const DEFAULT_LABELS: ChatLabels = {
@@ -98,6 +113,21 @@ export const DEFAULT_LABELS: ChatLabels = {
   sendFailed: (reason) => `Not sent: ${reason}. Your draft is kept.`,
   superseded: "Edited and resent",
   retracted: "Retracted",
+  queued: (n) => (n === 1 ? "1 queued" : `${n} queued`),
+  queueSendAll: "Send all",
+  queueDiscard: "Discard all",
+  queueSendNow: "Send now",
+  queueInterrupt: "Interrupt and send",
+  queueUnsend: "Unsend",
+  undoOpen: (s) => `Undo available for ${s} s`,
+  undoCommitted: "Done",
+  undoReverted: "Undone",
+  undoRevert: "Undo",
+  typedApproval: (d) => (d === "reject" ? "Sending this will reject the pending approval." : "Sending this will approve the pending approval."),
+  showEarlierVersion: "Show earlier version",
+  hideEarlierVersion: "Hide earlier version",
+  edit: "Edit",
+  heldOnApproval: "Waiting on approval",
 };
 
 export function mergeLabels(labels?: Partial<ChatLabels>): ChatLabels {

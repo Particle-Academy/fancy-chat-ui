@@ -24,6 +24,11 @@ export interface SendResult {
   messageId: string;
   seq: number;
   delivery: string;
+  /**
+   * Set when the server took the text as a typed approval (opt-in per app): it
+   * was recorded as the decision and never delivered to the agent.
+   */
+  typedDecision?: { approvalId: string; optionId: string; decision: string; state: string };
 }
 
 export type CancelOutcome = "ok" | "not-running" | "no-turn" | "unsupported" | "refused" | "uncertain";
@@ -43,6 +48,8 @@ export interface ChatTransport {
   unsend(messageId: string): Promise<{ ok: boolean }>;
   decide(approvalId: string, input: { optionId: string; note?: string; edited?: unknown }): Promise<unknown>;
   answer(questionId: string, input: AnswerDraft): Promise<unknown>;
+  /** Revert an undoable action inside its window. The server refuses a late or non-human revert. */
+  revertUndo(actionId: string): Promise<unknown>;
 }
 
 export interface HttpTransportOptions {
@@ -66,6 +73,12 @@ export interface HttpTransportOptions {
   /** Fetch credentials. Default `same-origin`. */
   credentials?: RequestCredentials;
   withCredentials?: boolean;
+  /**
+   * The surface profile this transport serves. Sent as `X-Fancy-Chat-Profile`
+   * (and `profile=` on the event streams, which cannot carry headers); any
+   * filtering by it is the host's policy on the server.
+   */
+  profileId?: string;
 }
 
 function parseEvents(data: string): ChatEvent[] {
@@ -88,6 +101,7 @@ function trimTrailingSlashes(url: string): string {
 export function createHttpTransport(options: HttpTransportOptions): ChatTransport {
   const base = trimTrailingSlashes(options.baseUrl);
   const thread = `${base}/threads/${encodeURIComponent(options.threadId)}`;
+  const profileQuery = options.profileId ? `&profile=${encodeURIComponent(options.profileId)}` : "";
   const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   const ES = options.EventSource ?? (globalThis as { EventSource?: typeof EventSource }).EventSource;
   const retryMs = options.retryMs ?? 1000;
@@ -99,7 +113,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
     const res = await doFetch(url, {
       method,
       credentials: options.credentials ?? "same-origin",
-      headers: { Accept: "application/json", ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(options.headers?.() ?? {}) },
+      headers: { Accept: "application/json", ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(options.profileId ? { "X-Fancy-Chat-Profile": options.profileId } : {}), ...(options.headers?.() ?? {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       ...(signal ? { signal } : {}),
     });
@@ -113,7 +127,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
   };
 
   const poll = (after: number, waitMs: number, signal?: AbortSignal) =>
-    request("GET", `${thread}/events/poll?after=${after}&wait=${Math.round(waitMs)}`, undefined, signal) as Promise<{ events: ChatEvent[]; next: number }>;
+    request("GET", `${thread}/events/poll?after=${after}&wait=${Math.round(waitMs)}${profileQuery}`, undefined, signal) as Promise<{ events: ChatEvent[]; next: number }>;
 
   return {
     subscribe(h) {
@@ -155,7 +169,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
       const openSse = () => {
         if (!ES) return;
         h.onConnection?.("connecting");
-        es = new ES(`${thread}/events?after=${h.after()}`, { withCredentials: options.withCredentials ?? false });
+        es = new ES(`${thread}/events?after=${h.after()}${profileQuery}`, { withCredentials: options.withCredentials ?? false });
         es.onopen = () => h.onConnection?.("live");
         es.onmessage = (e: MessageEvent) => {
           delivered = true;
@@ -203,5 +217,6 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
     unsend: (messageId) => request("DELETE", `${thread}/queue/${encodeURIComponent(messageId)}`) as Promise<{ ok: boolean }>,
     decide: (approvalId, input) => request("POST", `${base}/approvals/${encodeURIComponent(approvalId)}/decision`, input),
     answer: (questionId, input) => request("POST", `${base}/questions/${encodeURIComponent(questionId)}/answer`, input),
+    revertUndo: (actionId) => request("POST", `${base}/undo/${encodeURIComponent(actionId)}/revert`, {}),
   };
 }

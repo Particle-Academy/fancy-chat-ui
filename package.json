@@ -71,6 +71,7 @@
     "dev": "tsup --watch",
     "pretest": "tsup",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "lint": "tsc --noEmit && eslint .",
     "check:no-prism": "node node_modules/@particle-academy/fancy-chat-js/scripts/check-no-prism.mjs .",
     "sabotage": "node tests/sabotage.mjs",
@@ -79,7 +80,7 @@
   "peerDependencies": {
     "@particle-academy/fancy-chat-js": ">=0.1.0 <2.0",
     "@particle-academy/fancy-echarts": ">=6.3.0 <7",
-    "@particle-academy/react-fancy": ">=6.26.0 <7",
+    "@particle-academy/react-fancy": ">=6.27.0 <7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

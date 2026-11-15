@@ -106,11 +106,13 @@ export function ToolRow({ entry, expanded, onExpandedChange, onRetry, renderOutp
 
 export interface PlanRowProps {
   entry: PlanEntry;
+  /** A held step's link to the approval it waits on (scroll the thread there). */
+  onShowApproval?: (approvalId: string) => void;
   labels?: Partial<ChatLabels>;
 }
 
 /** "Plan n/m · doing" with each step's status. */
-export function PlanRow({ entry, labels: l }: PlanRowProps): ReactNode {
+export function PlanRow({ entry, onShowApproval, labels: l }: PlanRowProps): ReactNode {
   const labels = mergeLabels(l);
   const done = entry.steps.filter((s) => s.status === "done" || s.status === "skipped").length;
   const doing = entry.steps.find((s) => s.status === "running" || s.status === "held");
@@ -126,6 +128,11 @@ export function PlanRow({ entry, labels: l }: PlanRowProps): ReactNode {
         {entry.steps.map((s) => (
           <li key={s.id} data-fancy-chat-plan-step={s.id} data-fancy-chat-plan-step-status={s.status} data-fancy-chat-plan-step-owner={s.owner}>
             {s.title}
+            {s.status === "held" && s.approvalId && onShowApproval ? (
+              <Button size="xs" variant="ghost" className="ms-2" data-fancy-chat-plan-step-approval={s.approvalId} onClick={() => onShowApproval(s.approvalId as string)}>
+                {labels.heldOnApproval}
+              </Button>
+            ) : null}
           </li>
         ))}
       </ol>

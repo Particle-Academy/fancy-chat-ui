@@ -20,6 +20,10 @@ neutral contract in fancy-chat-js. No Prism import.
 | `src/AgentThread.tsx` | VirtualList + ChatMessage `body`; row renderers; HITL placement. |
 | `src/AgentComposer.tsx` | PromptInput with per-thread drafts (`draftKey`), Stop, outcome line. |
 | `src/PartView.tsx`, `src/activity.tsx`, `src/ApprovalCard.tsx`, `src/QuestionForm.tsx` | Parts, activity rows, HITL. |
+| `src/QueueBar.tsx`, `src/UndoCountdown.tsx` | The queue behind a running turn; the undo window (a display: the server decides lateness). |
+| `src/triggers.ts` | The trigger registry over PromptInput `triggers`, and the pill serialiser. |
+| `src/profile.ts` | Surface profiles: validated at definition; parts and HITL kinds per surface. |
+| `tests/e2e/` | `npm run test:e2e` against fancy-chat-php's `tests/e2e/serve.php`. Fails, never skips, without it. |
 | `src/actionable.ts` | The one place a projected state becomes "which item is actionable". |
 | `src/knowledge/` | OPTIONAL `./knowledge` entry: g282.1 validators (`shapes.ts`), `deriveIngestDisplay` (`ingest.ts`), `KnowledgeExplorer`. |
 | `src/charts/` | OPTIONAL `./charts` entry: `chartSpecToOption` (`spec.ts`) and `chartPartRenderer` on fancy-echarts. The only file that imports fancy-echarts. |
@@ -54,6 +58,11 @@ neutral contract in fancy-chat-js. No Prism import.
 10. **Raw ECharts options render only with `allowRawOptions: true`.** Validity comes
     from fancy-chat-js `validatePart`, the same validator the servers run, and only
     keys `chartSpecToOption` names reach ECharts.
+
+11. **One engine, many surfaces.** `store.start()`/`stop()` are reference-counted;
+    a surface unmounting never disconnects the others.
+12. **A pill label can never close or split its pill.** `serializePill` strips the
+    grammar's delimiters and control characters.
 
 ## Dev dependencies
 

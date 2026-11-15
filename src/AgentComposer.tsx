@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { PromptInput } from "@particle-academy/react-fancy";
-import type { PromptAttachment, PromptCmd, PromptDraft, PromptMention } from "@particle-academy/react-fancy";
+import type { PromptAttachment, PromptCmd, PromptDraft, PromptMention, PromptTrigger } from "@particle-academy/react-fancy";
+import { matchTypedApproval, type ApprovalRecord, type TypedApprovalConfig } from "@particle-academy/fancy-chat-js";
+
+import type { TriggerRegistry } from "./triggers";
 
 import { mergeLabels, type ChatLabels } from "./labels";
 
@@ -47,6 +50,14 @@ export interface AgentComposerProps {
   placeholder?: string;
   labels?: Partial<ChatLabels>;
   className?: string;
+  /** App pickers: a trigger registry, or PromptInput triggers directly. */
+  triggers?: TriggerRegistry | PromptTrigger[];
+  /**
+   * Typed approval, opt-in per app. With the app's config and the actionable
+   * approval, the composer says when the draft will be taken as a decision. The
+   * server decides; this is the warning before send.
+   */
+  typedApproval?: { config: Partial<TypedApprovalConfig>; approval: Pick<ApprovalRecord, "state" | "options"> | null };
 }
 
 /**
@@ -58,6 +69,8 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
   const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, disabled, placeholder, className } = props;
   const labels = mergeLabels(props.labels);
   const draft = drafts[threadId] ?? EMPTY_PROMPT_DRAFT;
+  const triggers = props.triggers ? (Array.isArray(props.triggers) ? props.triggers : props.triggers.triggers()) : undefined;
+  const typed = props.typedApproval ? matchTypedApproval(draft.text, props.typedApproval.approval, props.typedApproval.config) : null;
 
   const submit = async (text: string, attachments: PromptAttachment[]) => {
     const result = await onSend({ threadId, text, attachments });
@@ -82,6 +95,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
         onStop={onStop}
         commands={commands}
         mentions={mentions}
+        triggers={triggers}
         budgetTokens={budgetTokens}
         usedTokens={usedTokens}
         meter={meter}
@@ -90,6 +104,11 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
         placeholder={placeholder ?? labels.composerPlaceholder}
         labels={{ stop: labels.stop }}
       />
+      {typed ? (
+        <div data-fancy-chat-typed-approval={typed.decision} role="status" className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+          {labels.typedApproval(typed.decision)}
+        </div>
+      ) : null}
       {outcomeText ? (
         <div data-fancy-chat-send-outcome="" data-fancy-chat-delivery={outcome?.delivery} role="status" className={outcome?.delivery === "failed" ? "mt-1 text-xs text-red-600 dark:text-red-400" : "mt-1 text-xs opacity-70"}>
           {outcomeText}

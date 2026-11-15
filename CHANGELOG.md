@@ -53,6 +53,35 @@ version number is not a stability promise until 1.0; read the entry.
 - `npm test` now builds first (`pretest`) so the packaging test can read the
   metafile.
 
+- Phase 2 surfaces (CC-fancy-0042):
+  - `QueueBar` and `queuedMessages`: unsend one, send all, discard, Send now after a
+    configurable wait (default 2 minutes), interrupt and send.
+  - `createTriggerRegistry` / `serializePill`: per-character app pickers (MOIC's
+    `@ # / $ &` and a backtick) on PromptInput `triggers`, serialised to
+    `[kind:target|label]`; a label can never close or split its pill.
+  - Surface profiles: `defineSurfaceProfile` (validated at definition), the
+    `profile` prop on AgentThread (part kinds and actionable HITL kinds), `profileId`
+    on the transport (`X-Fancy-Chat-Profile`, `profile=` on the streams), and one
+    shared store across surfaces (`useAgentThread({ store })`; reference-counted, so
+    the last surface to unmount disconnects).
+  - `UndoCountdown` and undo rows in AgentThread; `revertUndo` on the transport and
+    the hook.
+  - Edit and resend: superseded branches hidden by default with a toggle
+    (`showBranches`, controlled), and Edit on the viewer's own live messages
+    (`onEdit`).
+  - Held plan steps link to their approval (`onShowApproval`).
+  - Typed approval, opt-in: AgentComposer's `typedApproval` warns when the draft will
+    be taken as a decision; `SendResult.typedDecision` reports when the server did.
+  - `npm run test:e2e`: the transport and store against fancy-chat-php's harness. It
+    fails, never skips, when PHP or the harness is missing.
+
+### Changed
+
+- **The react-fancy peer is now `>=6.27.0 <7`**, for PromptInput `triggers`.
+  Unpublished, so nothing to do.
+- A superseded message and its branch are hidden by default (branch policy). Pass
+  `showBranches` to show them.
+
 ### Security
 
 - `createHttpTransport` trims trailing slashes from `baseUrl` with a linear scan.

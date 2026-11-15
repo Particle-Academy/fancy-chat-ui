@@ -31,6 +31,8 @@ export interface PartViewProps {
   /** How `approval` and `question` parts render: the thread places the HITL record here. */
   renderHitl?: (part: Part) => ReactNode;
   labels?: Partial<ChatLabels>;
+  /** A surface profile's part kinds. Any other kind renders as its plain text. */
+  allowedKinds?: readonly string[];
 }
 
 const SAFE_HREF = /^https?:\/\//i;
@@ -52,10 +54,11 @@ export function PartView(props: PartViewProps): ReactNode {
   const ctx: PartRenderContext = { streaming, labels, renderPart };
   const handle = { "data-fancy-chat-part": part.id, "data-fancy-chat-part-kind": part.kind };
 
-  const custom = renderers?.[part.kind];
+  const allowed = !props.allowedKinds || props.allowedKinds.includes(part.kind);
+  const custom = allowed ? renderers?.[part.kind] : undefined;
   if (custom) return <div {...handle}>{custom(part, ctx)}</div>;
 
-  switch (part.kind) {
+  switch (allowed ? part.kind : "") {
     case "text":
       return (
         <div {...handle}>

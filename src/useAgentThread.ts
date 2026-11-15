@@ -15,6 +15,8 @@ export interface UseAgentThreadOptions {
   nudge?: (cb: (seq: number) => void) => () => void;
   /** HITL kinds this surface may act on. Default both. */
   actionableKinds?: ("approval" | "question")[];
+  /** A store shared by several surfaces (surface profiles): one engine, one subscription. */
+  store?: ThreadStore;
 }
 
 export interface AgentThreadApi extends ThreadSnapshot {
@@ -26,6 +28,7 @@ export interface AgentThreadApi extends ThreadSnapshot {
   send: ChatTransport["send"];
   cancel: ChatTransport["cancel"];
   unsend: ChatTransport["unsend"];
+  revertUndo: ChatTransport["revertUndo"];
   /** The human's decision. Only the option and note travel; the server resolves the actor and the decision. */
   decide: (input: ApprovalDecisionInput) => Promise<unknown>;
   answer: (input: QuestionAnswerInput) => Promise<unknown>;
@@ -37,10 +40,10 @@ export interface AgentThreadApi extends ThreadSnapshot {
  * share one store by passing the same transport and options.
  */
 export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
-  const { transport, initial, nudge, actionableKinds } = options;
+  const { transport, initial, nudge, actionableKinds, store: shared } = options;
   // A new transport is a new thread; the store is rebuilt for it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const store = useMemo(() => createThreadStore({ transport, ...(initial ? { initial } : {}), ...(nudge ? { nudge } : {}) }), [transport]);
+  const store = useMemo(() => shared ?? createThreadStore({ transport, ...(initial ? { initial } : {}), ...(nudge ? { nudge } : {}) }), [transport, shared]);
 
   useEffect(() => {
     store.start();
@@ -58,11 +61,12 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   const send = useCallback((input: SendInput) => transport.send(input), [transport]);
   const cancel = useCallback((mode: "stop" | "interrupt") => transport.cancel(mode), [transport]);
   const unsend = useCallback((id: string) => transport.unsend(id), [transport]);
+  const revertUndo = useCallback((id: string) => transport.revertUndo(id), [transport]);
   const decide = useCallback(
     (input: ApprovalDecisionInput) => transport.decide(input.approvalId, { optionId: input.optionId, ...(input.note ? { note: input.note } : {}) }),
     [transport],
   );
   const answer = useCallback((input: QuestionAnswerInput) => transport.answer(input.questionId, { values: input.values, notes: input.notes } as AnswerDraft), [transport]);
 
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, decide, answer };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer };
 }

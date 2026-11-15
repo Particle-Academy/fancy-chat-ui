@@ -22,6 +22,12 @@ packaging test enforces that. Prism adapters are optional, in
 | `ApprovalCard` | `Card`, `Button`, `Textarea` | Tone and decision from the option KIND, never its label; note; in-flight lock; one actionable at a time. |
 | `QuestionForm` | `RadioGroup`, `CheckboxGroup`, `Textarea` | Controlled drafts; Answer enabled once each required field has an option or a note. |
 
+Phase 2 adds `QueueBar`, `UndoCountdown`, the trigger registry (`createTriggerRegistry`,
+`serializePill`) on PromptInput `triggers`, surface profiles (`defineSurfaceProfile`,
+one shared store across surfaces), edit-and-resend branches, held-step links and the
+typed-approval warning. `npm run test:e2e` drives the real transport against
+fancy-chat-php.
+
 Every component is controlled, carries `data-fancy-chat-*` handles, and takes
 `labels`. A co-driving agent reaches the surface through
 `registerAgentChatBridge` in `@particle-academy/agent-integrations` (`./bridges/agent-chat`),

@@ -8,6 +8,8 @@ import { ApprovalCard, type ApprovalDecisionInput } from "./ApprovalCard";
 import { PlanRow, ThinkingBlock, ToolRow } from "./activity";
 import { mergeLabels, type ChatLabels } from "./labels";
 import { PartView, type PartViewProps } from "./PartView";
+import type { SurfaceProfile } from "./profile";
+import { UndoCountdown } from "./UndoCountdown";
 import { QuestionForm, type QuestionAnswerInput } from "./QuestionForm";
 
 export interface AgentThreadProps {
@@ -46,6 +48,22 @@ export interface AgentThreadProps {
   renderRow?: (row: Row) => ReactNode | undefined;
   labels?: Partial<ChatLabels>;
   className?: string;
+  /** The surface profile: which part kinds render in full and which HITL kinds this surface acts on. */
+  profile?: SurfaceProfile;
+  /**
+   * Edit and resend, branch policy (the default): superseded branches are hidden
+   * unless this is on. Controlled when `onShowBranchesChange` is passed.
+   */
+  showBranches?: boolean;
+  onShowBranchesChange?: (show: boolean) => void;
+  /** Offer Edit on the viewer's own live messages. The host fills the composer and sends with `supersedes`. */
+  onEdit?: (message: MessageEntry) => void;
+  /** Revert an undoable action (the human only; the server refuses a late revert). */
+  onRevertUndo?: (actionId: string) => void | Promise<unknown>;
+  /** A held plan step's link to its approval. */
+  onShowApproval?: (approvalId: string) => void;
+  /** A fixed clock (ms) for undo countdowns. Without it they tick themselves. */
+  now?: number;
 }
 
 type ListRow = { id: string; row: Row | null };
@@ -77,14 +95,24 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     questionDrafts,
     onQuestionDraftChange,
     onAnswer,
-    actionableKinds = ["approval", "question"],
+    actionableKinds: actionableKindsProp,
     expanded,
     onExpandedChange,
     onRetryTool,
     partViewProps,
     renderRow,
     className,
+    profile,
+    onEdit,
+    onRevertUndo,
+    onShowApproval,
+    now,
   } = props;
+  const actionableKinds = actionableKindsProp ?? profile?.hitl?.actionable ?? ["approval", "question"];
+  const [ownShowBranches, setOwnShowBranches] = useState(false);
+  const showBranches = props.onShowBranchesChange ? (props.showBranches ?? false) : (props.showBranches ?? ownShowBranches);
+  const setShowBranches = (v: boolean) => (props.onShowBranchesChange ? props.onShowBranchesChange(v) : setOwnShowBranches(v));
+  const partProps = profile?.parts ? { ...partViewProps, allowedKinds: profile.parts } : partViewProps;
   const labels = mergeLabels(props.labels);
   const [unseen, setUnseen] = useState(0);
   const [ownDrafts, setOwnDrafts] = useState<Record<string, AnswerDraft>>({});
@@ -92,10 +120,24 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
 
   const actionableId = useMemo(() => actionableIn(state, actionableKinds), [state, actionableKinds]);
 
+  /** Row id -> the superseded message whose branch it belongs to (the message itself included). */
+  const branchOf = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const b of state.branches ?? []) {
+      map.set(b.supersededId, b.supersededId);
+      for (const id of b.rowIds) if (!map.has(id)) map.set(id, b.supersededId);
+    }
+    return map;
+  }, [state, state.branches?.length]);
+  const branchToggleAt = useMemo(() => new Map((state.branches ?? []).map((b) => [b.byId, b.supersededId])), [state, state.branches?.length]);
+
   const items = useMemo<ListRow[]>(() => {
-    const visible = rows.filter((r) => !(r.kind === "message" && r.retracted)).map((r) => ({ id: r.id, row: r }));
+    const visible = rows
+      .filter((r) => !(r.kind === "message" && r.retracted))
+      .filter((r) => showBranches || !branchOf.has(r.id))
+      .map((r) => ({ id: r.id, row: r }));
     return onLoadEarlier && hasEarlier ? [{ id: EARLIER_ID, row: null }, ...visible] : visible;
-  }, [rows, onLoadEarlier, hasEarlier]);
+  }, [rows, onLoadEarlier, hasEarlier, showBranches, branchOf]);
 
   const renderApproval = (approvalId: string) => {
     const record = state.approvals.find((a) => a.approvalId === approvalId);
@@ -106,7 +148,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         actionable={!!onDecide && actionableId === approvalId}
         onDecide={onDecide ?? (() => {})}
         labels={props.labels}
-        partViewProps={partViewProps}
+        partViewProps={partProps}
       />
     );
   };
@@ -144,7 +186,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     const body = (
       <div className="flex flex-col gap-2">
         {m.parts.map((part) => (
-          <PartView key={part.id} {...partViewProps} part={part} streaming={m.open.includes(part.id)} renderHitl={renderHitl} labels={props.labels} />
+          <PartView key={part.id} {...partProps} part={part} streaming={m.open.includes(part.id)} renderHitl={renderHitl} labels={props.labels} />
         ))}
       </div>
     );
@@ -154,9 +196,27 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         data-fancy-chat-delivery={m.delivery ?? undefined}
         data-fancy-chat-superseded={m.superseded ? "true" : "false"}
         data-fancy-chat-turn={m.turnId ?? undefined}
+        data-fancy-chat-branch={branchOf.get(m.id)}
         className={m.superseded ? "opacity-60" : undefined}
       >
-        <ChatMessage message={message} ownRoles={ownRoles} body={body} labels={{ pending: labels.delivery.sending ?? "Sending", failed: labels.delivery.failed ?? "Not sent" }} />
+        <ChatMessage
+          message={message}
+          ownRoles={ownRoles}
+          body={body}
+          actions={
+            onEdit && m.author?.kind === "human" && ownRoles.includes(m.role) && !m.superseded && !m.retracted ? (
+              <Button size="xs" variant="ghost" data-fancy-chat-edit={m.id} onClick={() => onEdit(m)}>
+                {labels.edit}
+              </Button>
+            ) : undefined
+          }
+          labels={{ pending: labels.delivery.sending ?? "Sending", failed: labels.delivery.failed ?? "Not sent" }}
+        />
+        {branchToggleAt.has(m.id) ? (
+          <Button size="xs" variant="ghost" data-fancy-chat-branch-toggle={branchToggleAt.get(m.id)} aria-pressed={showBranches} onClick={() => setShowBranches(!showBranches)}>
+            {showBranches ? labels.hideEarlierVersion : labels.showEarlierVersion}
+          </Button>
+        ) : null}
         {m.delivery && m.delivery !== "sent" && m.delivery !== "delivered" && m.delivery !== "sending" && m.delivery !== "failed" ? (
           <div data-fancy-chat-delivery-label="" className="mt-0.5 text-xs opacity-70">
             {labels.delivery[m.delivery] ?? m.delivery}
@@ -194,7 +254,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         body = <ToolRow entry={row} expanded={open} onExpandedChange={setOpen} onRetry={onRetryTool} labels={props.labels} />;
         break;
       case "plan":
-        body = <PlanRow entry={row} labels={props.labels} />;
+        body = <PlanRow entry={row} onShowApproval={onShowApproval} labels={props.labels} />;
         break;
       case "approval":
         body = renderApproval(row.approvalId);
@@ -202,9 +262,12 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
       case "question":
         body = renderQuestion(row.questionId);
         break;
+      case "undo":
+        body = <UndoCountdown entry={row} onRevert={onRevertUndo} now={now} labels={props.labels} />;
+        break;
     }
     return (
-      <div data-fancy-chat-row={row.kind} className="px-3 py-1.5">
+      <div data-fancy-chat-row={row.kind} data-fancy-chat-branch={branchOf.get(row.id)} className="px-3 py-1.5">
         {body}
       </div>
     );

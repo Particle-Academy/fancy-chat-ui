@@ -122,7 +122,8 @@ describe("AgentThread", () => {
       ev(3, "message.created", { message: { id: "m_x", role: "assistant", parts: [{ id: "p", kind: "text", format: "plain", text: "oops" }] } }),
       ev(4, "message.retracted", { messageId: "m_x" }),
     ]);
-    render(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} />);
+    // Branch policy hides a superseded message by default; show branches to see it marked.
+    render(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} showBranches />);
     expect(el('[data-fancy-chat-message="m_x"]')).toBeNull();
     expect(el('[data-fancy-chat-message="m_1"]')?.getAttribute("data-fancy-chat-superseded")).toBe("true");
   });

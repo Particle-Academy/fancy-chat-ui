@@ -24,3 +24,10 @@ version number is not a stability promise until 1.0; read the entry.
   - Requires react-fancy 6.26.0 (PromptInput `running`/`onStop`/`draftKey`,
     ContentRenderer `holdBack`/`transform`, VirtualList `anchorOnPrepend`, ChatMessage
     `body`) and fancy-chat-js 0.1.0, both peers.
+
+### Security
+
+- `createHttpTransport` trims trailing slashes from `baseUrl` with a linear scan.
+  The regex it used before this first release was quadratic on a long run of
+  slashes that were not at the end (code scanning #1, polynomial ReDoS):
+  100,000 slashes took 5.6 s. Never published, so nothing to upgrade.

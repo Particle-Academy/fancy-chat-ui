@@ -8,6 +8,19 @@ const source = [ev(1, "turn.started", { turnId: "u_1" }), ev(2, "turn.transition
 describe("createHttpTransport", () => {
   beforeEach(() => FakeEventSource.reset());
 
+  it("trims trailing slashes from baseUrl in linear time (code scanning #1)", () => {
+    // Slashes NOT at the end: a /\/+$/ regex retries from every one, which is quadratic.
+    const hostile = "/".repeat(100000) + "x";
+    const started = performance.now();
+    const t = createHttpTransport({ baseUrl: hostile + "///", threadId: "t_1", EventSource: FakeEventSource as never, fetch: vi.fn() as never });
+    expect(performance.now() - started).toBeLessThan(250);
+    const stop = t.subscribe({ after: () => 0, onEvents: () => {} });
+    expect(FakeEventSource.last().url).toBe(`${hostile}/threads/t_1/events?after=0`);
+    stop();
+    createHttpTransport({ baseUrl: "/chat//", threadId: "t", EventSource: FakeEventSource as never, fetch: vi.fn() as never }).subscribe({ after: () => 0, onEvents: () => {} });
+    expect(FakeEventSource.last().url).toBe("/chat/threads/t/events?after=0");
+  });
+
   it("opens SSE resuming after the cursor, and closes on unsubscribe", () => {
     const t = createHttpTransport({ baseUrl: "/chat", threadId: "t 1", EventSource: FakeEventSource as never, fetch: vi.fn() as never });
     const stop = t.subscribe({ after: () => 7, onEvents: () => {} });

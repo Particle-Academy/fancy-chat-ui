@@ -74,8 +74,19 @@ function parseEvents(data: string): ChatEvent[] {
   return [parsed as ChatEvent];
 }
 
+/**
+ * Drop trailing slashes with a scan from the end. Not a regex: `/\/+$/` retries
+ * from every slash in a run that is not at the end, which is quadratic
+ * (code scanning #1).
+ */
+function trimTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end -= 1;
+  return url.slice(0, end);
+}
+
 export function createHttpTransport(options: HttpTransportOptions): ChatTransport {
-  const base = options.baseUrl.replace(/\/+$/, "");
+  const base = trimTrailingSlashes(options.baseUrl);
   const thread = `${base}/threads/${encodeURIComponent(options.threadId)}`;
   const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   const ES = options.EventSource ?? (globalThis as { EventSource?: typeof EventSource }).EventSource;

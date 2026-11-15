@@ -39,6 +39,7 @@ const MUTATIONS = [
   ["sse falls back after delivering", "src/transport.ts", "if (options.mode !== \"sse\" && !delivered && failures", "if (options.mode !== \"sse\" && failures"],
   ["resume ignores the cursor", "src/transport.ts", "`${thread}/events?after=${h.after()}`", "`${thread}/events?after=0`"],
   ["host headers dropped", "src/transport.ts", "...(options.headers?.() ?? {})", ""],
+  ["quadratic trailing-slash regex back", "src/transport.ts", "const base = trimTrailingSlashes(options.baseUrl);", "const base = options.baseUrl.replace(/\\/+$/, \"\");"],
 ];
 
 function runSuite() {

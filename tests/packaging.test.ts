@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -22,11 +22,60 @@ describe("packaging", () => {
 
   it("carries no runtime dependencies: react-fancy, the contract and React are peers", () => {
     expect(pkg.dependencies ?? {}).toEqual({});
-    expect(Object.keys(pkg.peerDependencies).sort()).toEqual(["@particle-academy/fancy-chat-js", "@particle-academy/react-fancy", "react", "react-dom"]);
+    expect(Object.keys(pkg.peerDependencies).sort()).toEqual([
+      "@particle-academy/fancy-chat-js",
+      "@particle-academy/fancy-echarts",
+      "@particle-academy/react-fancy",
+      "react",
+      "react-dom",
+    ]);
+  });
+
+  it("fancy-echarts is an OPTIONAL peer, and echarts is never listed directly", () => {
+    expect(pkg.peerDependenciesMeta?.["@particle-academy/fancy-echarts"]).toEqual({ optional: true });
+    for (const field of ["dependencies", "devDependencies", "peerDependencies"]) expect(Object.keys(pkg[field] ?? {})).not.toContain("echarts");
+  });
+
+  it("exports the optional ./knowledge and ./charts entries", () => {
+    expect(Object.keys(pkg.exports)).toEqual(expect.arrayContaining([".", "./knowledge", "./charts"]));
   });
 
   it("never bundles a peer", () => {
     for (const peer of Object.keys(pkg.peerDependencies)) expect(tsup).toContain(`"${peer}"`);
+  });
+
+  it("the built root entry reaches neither ./knowledge, ./charts nor fancy-echarts (metafile)", () => {
+    // `npm test` builds first (pretest), so this reads the real import graph.
+    const metaPath = `${root}/dist/metafile-esm.json`;
+    if (!existsSync(metaPath)) throw new Error("dist/metafile-esm.json is missing: run `npm test` (which builds first) or `npm run build`.");
+    const meta = JSON.parse(readFileSync(metaPath, "utf8")) as {
+      outputs: Record<string, { imports?: { path: string; external?: boolean }[]; inputs?: Record<string, unknown> }>;
+    };
+    const key = (p: string) => p.replace(/^\.\//, "");
+    const outputs = new Map(Object.entries(meta.outputs).map(([k, v]) => [key(k), v]));
+    const seen = new Set<string>();
+    const queue = ["dist/index.js"];
+    const externals: string[] = [];
+    const inputs: string[] = [];
+    while (queue.length) {
+      const file = queue.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const out = outputs.get(file);
+      expect(out, `metafile has no output ${file}`).toBeDefined();
+      inputs.push(...Object.keys(out!.inputs ?? {}));
+      for (const imp of out!.imports ?? []) {
+        if (imp.external) externals.push(imp.path);
+        else queue.push(key(imp.path));
+      }
+    }
+    expect(inputs.length).toBeGreaterThan(5);
+    expect(inputs.filter((i) => /src[\\/](knowledge|charts)[\\/]/.test(i))).toEqual([]);
+    expect(externals.filter((e) => e.includes("fancy-echarts"))).toEqual([]);
+    // ...and the charts entry does reach it, so the check above can see one.
+    const charts = outputs.get("dist/charts.js");
+    const chartsReach = JSON.stringify(charts) + [...outputs.values()].map((o) => JSON.stringify(o.imports ?? [])).join("");
+    expect(chartsReach).toContain("@particle-academy/fancy-echarts");
   });
 
   it("first-party peer ranges are maintained ranges, not file: links or 0.x carets", () => {

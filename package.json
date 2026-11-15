@@ -34,6 +34,26 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./knowledge": {
+      "import": {
+        "types": "./dist/knowledge.d.ts",
+        "default": "./dist/knowledge.js"
+      },
+      "require": {
+        "types": "./dist/knowledge.d.cts",
+        "default": "./dist/knowledge.cjs"
+      }
+    },
+    "./charts": {
+      "import": {
+        "types": "./dist/charts.d.ts",
+        "default": "./dist/charts.js"
+      },
+      "require": {
+        "types": "./dist/charts.d.cts",
+        "default": "./dist/charts.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -49,6 +69,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "pretest": "tsup",
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint .",
     "check:no-prism": "node node_modules/@particle-academy/fancy-chat-js/scripts/check-no-prism.mjs .",
@@ -57,12 +78,19 @@
   },
   "peerDependencies": {
     "@particle-academy/fancy-chat-js": ">=0.1.0 <2.0",
+    "@particle-academy/fancy-echarts": ">=6.3.0 <7",
     "@particle-academy/react-fancy": ">=6.26.0 <7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "@particle-academy/fancy-echarts": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@particle-academy/fancy-chat-js": "file:../fancy-chat-js",
+    "@particle-academy/fancy-echarts": "^6.3.0",
     "@particle-academy/react-fancy": "file:../react-fancy",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",

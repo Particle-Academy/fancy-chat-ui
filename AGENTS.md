@@ -21,6 +21,8 @@ neutral contract in fancy-chat-js. No Prism import.
 | `src/AgentComposer.tsx` | PromptInput with per-thread drafts (`draftKey`), Stop, outcome line. |
 | `src/PartView.tsx`, `src/activity.tsx`, `src/ApprovalCard.tsx`, `src/QuestionForm.tsx` | Parts, activity rows, HITL. |
 | `src/actionable.ts` | The one place a projected state becomes "which item is actionable". |
+| `src/knowledge/` | OPTIONAL `./knowledge` entry: g282.1 validators (`shapes.ts`), `deriveIngestDisplay` (`ingest.ts`), `KnowledgeExplorer`. |
+| `src/charts/` | OPTIONAL `./charts` entry: `chartSpecToOption` (`spec.ts`) and `chartPartRenderer` on fancy-echarts. The only file that imports fancy-echarts. |
 
 ## Invariants (each has a test, and a sabotage entry that proves it)
 
@@ -39,6 +41,19 @@ neutral contract in fancy-chat-js. No Prism import.
 6. **Never drop a part.** An unknown kind renders `partToText` in a chip.
 7. **The projected `state` is mutated in place by the store.** Memoise on
    `snapshot.version`, never on `state` identity.
+8. **The root entry never reaches `./knowledge`, `./charts` or fancy-echarts.**
+   `tests/packaging.test.ts` walks the built metafile from `dist/index.js`. `npm test`
+   builds first (`pretest`), and the sabotage sweep runs `npm test` for this reason.
+9. **Knowledge data carries `contractVersion: "g282.1"` or it is refused, never
+   guessed.** The ingest rule lives in `deriveIngestDisplay` alone:
+   - without `jobsAvailable`, only done or failed is shown;
+   - with it, queued and running show only on a fresh worker heartbeat;
+   - `unknown` is never rendered as running.
+
+   No scope prop exists; the adapter binds the scope.
+10. **Raw ECharts options render only with `allowRawOptions: true`.** Validity comes
+    from fancy-chat-js `validatePart`, the same validator the servers run, and only
+    keys `chartSpecToOption` names reach ECharts.
 
 ## Dev dependencies
 

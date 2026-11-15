@@ -42,6 +42,49 @@ const [follow, setFollow] = useState(true);
   onSend={({ text }) => chat.send({ parts: [{ id: "p1", kind: "text", format: "plain", text }] })} />
 ```
 
+## Optional entries
+
+The root entry never imports either of these, and a build test reading the
+metafile proves it, so a host that uses neither pays for neither.
+
+### `@particle-academy/fancy-chat-ui/charts`
+
+```tsx
+import { chartPartRenderer } from "@particle-academy/fancy-chat-ui/charts";
+
+<AgentThread {...props} partViewProps={{ renderers: { chart: chartPartRenderer() } }} />
+```
+
+The `chart` part's neutral spec (`line`, `bar`, `area`, `pie`, `scatter`) becomes an
+ECharts option rendered by `@particle-academy/fancy-echarts`, an optional peer that
+only this entry imports. Only keys the spec names reach ECharts. Raw `part.echarts`
+options render only with `chartPartRenderer({ allowRawOptions: true })`, for a host
+whose server places them from trusted code. Without that flag they show the part's
+plain text. A spec the contract rejects falls back to text too.
+
+### `@particle-academy/fancy-chat-ui/knowledge`
+
+```tsx
+import { KnowledgeExplorer } from "@particle-academy/fancy-chat-ui/knowledge";
+
+<KnowledgeExplorer adapter={knowledgeAdapter} />
+```
+
+It renders only when an adapter is passed, and each method the adapter lacks hides
+its part. The adapter covers `search`, `listSources`, `listChunks`, `ingestJobs` and
+`workerStatus`.
+
+- **Scope:** the adapter binds it. There is no scope prop, and a user never picks one.
+- **Shapes:** the g282.1 shapes agreed with Prism. Every listing, ingest job and worker
+  status must carry `contractVersion: "g282.1"`. Any other value, or none, is refused:
+  the explorer names the version that arrived and shows none of that data.
+- **Ingest:** until Prism's ingest jobs land, only `done` and `failed` are shown, and
+  everything else is `unknown`. Pass `jobsAvailable` once they exist. Even then, `queued`
+  and `running` show only while the worker's heartbeat is fresh; a stale or missing one
+  shows `unknown` and a red "nothing is processing" banner. `unknown` is never shown as
+  running. The rule is `deriveIngestDisplay`.
+- **Text:** all text from the store renders as plain text.
+
 ## Develop
 
 Until the first publish, the dev dependencies point at the sibling checkouts

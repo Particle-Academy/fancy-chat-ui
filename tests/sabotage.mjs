@@ -40,10 +40,36 @@ const MUTATIONS = [
   ["resume ignores the cursor", "src/transport.ts", "`${thread}/events?after=${h.after()}`", "`${thread}/events?after=0`"],
   ["host headers dropped", "src/transport.ts", "...(options.headers?.() ?? {})", ""],
   ["quadratic trailing-slash regex back", "src/transport.ts", "const base = trimTrailingSlashes(options.baseUrl);", "const base = options.baseUrl.replace(/\\/+$/, \"\");"],
+  // ./knowledge
+  ["any contract version accepted", "src/knowledge/shapes.ts", "if (v.contractVersion === G282_VERSION) return null;", "return null;"],
+  ["provenance unchecked", "src/knowledge/shapes.ts", "int(v.position) && isProvenance(v.provenance)", "int(v.position)"],
+  ["any job state accepted", "src/knowledge/shapes.ts", "STATES.has(input.state) &&", ""],
+  ["zero stale window accepted", "src/knowledge/shapes.ts", "int(input.staleAfterMs, 1)", "int(input.staleAfterMs, 0)"],
+  ["queued/running shown before jobs land", "src/knowledge/ingest.ts", "if (!options.jobsAvailable) return { display: \"unknown\", alarm: false };", ";"],
+  ["stored state trusted over a stale heartbeat", "src/knowledge/ingest.ts", "const fresh = worker !== null && Number.isFinite(beat) && now - beat <= worker.staleAfterMs;", "const fresh = true;"],
+  ["stale window off by one", "src/knowledge/ingest.ts", "now - beat <= worker.staleAfterMs", "now - beat < worker.staleAfterMs"],
+  ["no nothing-processing alarm", "src/knowledge/ingest.ts", "return { display: \"unknown\", alarm: true };", "return { display: \"unknown\", alarm: false };"],
+  ["search hits rendered as HTML", "src/knowledge/KnowledgeExplorer.tsx", "<Text className=\"whitespace-pre-wrap break-words\">{h.text}</Text>", "<div dangerouslySetInnerHTML={{ __html: h.text }} />"],
+  ["load more ignores the cursor", "src/knowledge/KnowledgeExplorer.tsx", "onClick={() => loadSources(sourcesCursor)}", "onClick={() => loadSources(null)}"],
+  ["sources shown without listSources", "src/knowledge/KnowledgeExplorer.tsx", "{adapter.listSources ? (\n        <section", "{true ? (\n        <section"],
+  ["refused listing still rendered", "src/knowledge/KnowledgeExplorer.tsx", "{!sourcesError ? (\n            <Table>", "{true ? (\n            <Table>"],
+  ["renders without an adapter", "src/knowledge/KnowledgeExplorer.tsx", "if (!adapter) return null;", "if (!adapter) return <div data-fancy-chat-knowledge=\"\" />;"],
+  // ./charts
+  ["raw options allowed by default", "src/charts/index.tsx", "const { allowRawOptions = false,", "const { allowRawOptions = true,"],
+  ["invalid spec handed to ECharts", "src/charts/index.tsx", "if (!verdict.ok) return fallback(\"invalid\");", ";"],
+  ["height ignored", "src/charts/index.tsx", "style={{ width: \"100%\", height }}", "style={{ width: \"100%\", height: 280 }}"],
+  ["unknown spec keys leak into the option", "src/charts/spec.ts", "return { type: spec.type, ...named(s), data };", "return { type: spec.type, ...s, data };"],
+  ["area loses its fill", "src/charts/spec.ts", "return { type: \"line\", areaStyle: {}, ...named(s), data };", "return { type: \"line\", ...named(s), data };"],
+  ["pie slices unnamed", "src/charts/spec.ts", "(categories?.[i] !== undefined ? { name: categories[i], value: v } : v)", "v"],
+  ["legend on a single series", "src/charts/spec.ts", "if (series.length > 1 && names.length)", "if (names.length)"],
+  // entry isolation, read from the build's metafile
+  ["root entry pulls in ./charts", "src/index.ts", "export { actionableIn } from \"./actionable\";", "export { actionableIn } from \"./actionable\";\nexport { chartPartRenderer } from \"./charts/index\";"],
 ];
 
 function runSuite() {
-  const r = spawnSync("npx", ["vitest", "run", "--reporter=dot"], { cwd: root, shell: true, encoding: "utf8" });
+  // `npm test` builds first (pretest), so the metafile-based entry checks see
+  // the mutated build rather than a stale one.
+  const r = spawnSync("npm", ["test", "--silent"], { cwd: root, shell: true, encoding: "utf8" });
   return r.status;
 }
 

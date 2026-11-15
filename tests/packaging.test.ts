@@ -80,6 +80,10 @@ describe("packaging", () => {
 
   it("first-party peer ranges are maintained ranges, not file: links or 0.x carets", () => {
     expect(pkg.peerDependencies["@particle-academy/fancy-chat-js"]).toBe(">=0.1.0 <2.0");
+    // PromptInput `triggers` ships in react-fancy 6.27.0. The `-0` admits the branch's
+    // unpublished prerelease (6.27.0-cc0042.1) that git installs carry, and still refuses
+    // 6.26.0, which has no `triggers`.
+    expect(pkg.peerDependencies["@particle-academy/react-fancy"]).toBe(">=6.27.0-0 <7");
     for (const range of Object.values(pkg.peerDependencies) as string[]) expect(range).not.toMatch(/^file:/);
   });
 });

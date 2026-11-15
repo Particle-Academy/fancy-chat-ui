@@ -66,6 +66,9 @@ neutral contract in fancy-chat-js. No Prism import.
 
 ## Dev dependencies
 
-`file:../fancy-chat-js` and `file:../react-fancy` with `install-links=true` (a symlink
-would load a second React). CI's Install step is red until both are on npm; then they
-become carets.
+Until they are on npm, `@particle-academy/fancy-chat-js` and `@particle-academy/react-fancy`
+are pinned git commits over HTTPS (`git+https://github.com/Particle-Academy/<repo>.git#<40-char sha>`; never SSH, which a CI runner cannot clone); npm builds each
+in its `prepare`, so `npm ci` reproduces exactly. A test refuses a `file:` path. Re-pin
+by editing the sha and running `npm install`. To try an unpushed sibling locally, use
+`npm install --no-save --install-links ../<repo>`, which leaves the manifest alone.
+This package also builds in `prepare`, so it installs from git itself.

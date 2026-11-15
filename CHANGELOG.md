@@ -79,6 +79,10 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Changed
 
+- **Installable from git, and reproducible to install.** `prepare` builds `dist/`, so
+  `npm install github:Particle-Academy/fancy-chat-ui#<sha>` works before a release, and
+  the unreleased dev dependencies (fancy-chat-js, react-fancy) are pinned git commits
+  rather than `file:` paths, so `npm ci` installs the same tree anywhere, CI included.
 - **The react-fancy peer is now `>=6.27.0 <7`**, for PromptInput `triggers`.
   Unpublished, so nothing to do.
 - A superseded message and its branch are hidden by default (branch policy). Pass

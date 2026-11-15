@@ -75,6 +75,7 @@
     "lint": "tsc --noEmit && eslint .",
     "check:no-prism": "node node_modules/@particle-academy/fancy-chat-js/scripts/check-no-prism.mjs .",
     "sabotage": "node tests/sabotage.mjs",
+    "prepare": "npm run build",
     "prepublishOnly": "tsup"
   },
   "peerDependencies": {
@@ -90,9 +91,9 @@
     }
   },
   "devDependencies": {
-    "@particle-academy/fancy-chat-js": "file:../fancy-chat-js",
+    "@particle-academy/fancy-chat-js": "git+https://github.com/Particle-Academy/fancy-chat-js.git#01bb7fcc193dc6b51cd144a6c5ea5b312654ebef",
     "@particle-academy/fancy-echarts": "^6.3.0",
-    "@particle-academy/react-fancy": "file:../react-fancy",
+    "@particle-academy/react-fancy": "git+https://github.com/Particle-Academy/react-fancy.git#8056b73ed68bc238d45bdcf83f363ce8a378efde",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22",

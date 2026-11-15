@@ -104,10 +104,8 @@ jobs:
         with:
           node-version: "22"
 
-      # KNOWN RED until first publish: devDependencies point at file:../fancy-chat-js
-      # and file:../react-fancy (with install-links), because fancy-chat-js 0.1.0 and
-      # react-fancy 6.26.0 are not on npm yet. At first publish they become
-      # registry carets and this comment goes.
+      # Until fancy-chat-js and react-fancy 6.27.0 are on npm, those two dev
+      # dependencies are pinned git commits; npm builds each in its `prepare`.
       - name: Install
         run: npm install --no-audit --no-fund
 

@@ -180,6 +180,18 @@ describe("edit and resend in the thread", () => {
   });
 });
 
+describe("a message taken as a typed decision", () => {
+  it("shows that it was taken as the decision, not as delivered", () => {
+    const p = projectThread([
+      ev(1, "message.created", { message: { id: "m_1", role: "user", parts: [{ id: "p", kind: "text", format: "plain", text: "approve" }], delivery: "sent" } }, { actor: { kind: "human", id: "u_1" } }),
+      ev(2, "delivery.changed", { messageId: "m_1", action: "decide" }, { actor: { kind: "system", id: "server" } }),
+    ]);
+    render(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} />);
+    expect(el('[data-fancy-chat-message="m_1"]')?.getAttribute("data-fancy-chat-delivery")).toBe("decided");
+    expect(el('[data-fancy-chat-message="m_1"] [data-fancy-chat-delivery-label]')?.textContent).toBe("Taken as your decision");
+  });
+});
+
 describe("undo and plan-step rows in the thread", () => {
   it("renders an undo row with its countdown and a held plan step that points at its approval", () => {
     const p = projectThread([

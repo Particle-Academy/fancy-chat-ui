@@ -72,6 +72,8 @@ version number is not a stability promise until 1.0; read the entry.
   - Held plan steps link to their approval (`onShowApproval`).
   - Typed approval, opt-in: AgentComposer's `typedApproval` warns when the draft will
     be taken as a decision; `SendResult.typedDecision` reports when the server did.
+  - A message the server took as a typed decision shows delivery `decided`
+    ("Taken as your decision"), never as delivered.
   - `npm run test:e2e`: the transport and store against fancy-chat-php's harness. It
     fails, never skips, when PHP or the harness is missing.
 

@@ -54,6 +54,7 @@ const MUTATIONS = [
   ["typed approval hint ignores the app's opt-in", "src/AgentComposer.tsx", "matchTypedApproval(draft.text, props.typedApproval.approval, props.typedApproval.config)", "matchTypedApproval(draft.text, props.typedApproval.approval, { ...props.typedApproval.config, enabled: true })"],
   ["shared store stops on the first surface", "src/store.ts", "      if (users > 0) return;\n", ""],
   ["profile not sent on streams", "src/transport.ts", "`${thread}/events?after=${h.after()}${profileQuery}`", "`${thread}/events?after=${h.after()}`"],
+  ["decided shown as delivered", "src/labels.ts", '    decided: "Taken as your decision",\n', '    decided: "Delivered",\n'],
   ["quadratic trailing-slash regex back", "src/transport.ts", "const base = trimTrailingSlashes(options.baseUrl);", "const base = options.baseUrl.replace(/\\/+$/, \"\");"],
   // ./knowledge
   ["any contract version accepted", "src/knowledge/shapes.ts", "if (v.contractVersion === G282_VERSION) return null;", "return null;"],

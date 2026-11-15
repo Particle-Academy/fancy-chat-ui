@@ -142,7 +142,9 @@ describe("the UI transport against fancy-chat-php", () => {
     await transport.send({ parts: [{ id: "p1", kind: "text", format: "plain", text: "Go" }] });
     const approval = await until("the approval", () => store.getSnapshot().state.approvals.find((a) => a.state === "pending"));
     const typed = await transport.send({ parts: [{ id: "p2", kind: "text", format: "plain", text: "Approve." }] });
+    expect(typed.delivery).toBe("decided");
     expect(typed.typedDecision).toMatchObject({ approvalId: approval.approvalId, optionId: "yes", decision: "approve" });
+    await until("the message marked decided", () => store.getSnapshot().state.messages.find((m) => m.id === typed.messageId && m.delivery === "decided"));
     await until("applied", () => store.getSnapshot().state.approvals.find((a) => a.approvalId === approval.approvalId && a.state === "applied"));
     store.stop();
   });

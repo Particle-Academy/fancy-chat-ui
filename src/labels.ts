@@ -104,6 +104,7 @@ export const DEFAULT_LABELS: ChatLabels = {
     queued: "Queued",
     steered: "Sent mid-turn",
     delivered: "Delivered",
+    decided: "Taken as your decision",
     failed: "Not sent",
     dropped: "Dropped",
     unsent: "Unsent",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { AnswerDraft, ThreadState } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
@@ -6,7 +6,7 @@ import { actionableIn } from "./actionable";
 import type { ApprovalDecisionInput } from "./ApprovalCard";
 import type { QuestionAnswerInput } from "./QuestionForm";
 import { createThreadStore, type ThreadSnapshot, type ThreadStore } from "./store";
-import type { ChatTransport, SendInput } from "./transport";
+import type { BackendCapabilities, ChatTransport, SendInput } from "./transport";
 
 export interface UseAgentThreadOptions {
   transport: ChatTransport;
@@ -32,6 +32,12 @@ export interface AgentThreadApi extends ThreadSnapshot {
   /** The human's decision. Only the option and note travel; the server resolves the actor and the decision. */
   decide: (input: ApprovalDecisionInput) => Promise<unknown>;
   answer: (input: QuestionAnswerInput) => Promise<unknown>;
+  /**
+   * What the backend can do, read once per transport (`transport.capabilities`).
+   * Null until it loads, when the transport has no such method, or when the read
+   * fails. Pass `canStop={capabilities?.cancel !== false}` to AgentComposer.
+   */
+  capabilities: BackendCapabilities | null;
 }
 
 /**
@@ -50,6 +56,22 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
     return () => store.stop();
   }, [store]);
 
+  const [capabilities, setCapabilities] = useState<BackendCapabilities | null>(null);
+  useEffect(() => {
+    setCapabilities(null);
+    if (!transport.capabilities) return;
+    let live = true;
+    transport.capabilities().then(
+      (c) => {
+        if (live && c && typeof c.cancel === "boolean") setCapabilities(c);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [transport]);
+
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
   const kinds = actionableKinds ?? ["approval", "question"];
@@ -63,10 +85,14 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   const unsend = useCallback((id: string) => transport.unsend(id), [transport]);
   const revertUndo = useCallback((id: string) => transport.revertUndo(id), [transport]);
   const decide = useCallback(
-    (input: ApprovalDecisionInput) => transport.decide(input.approvalId, { optionId: input.optionId, ...(input.note ? { note: input.note } : {}) }),
+    (input: ApprovalDecisionInput) => transport.decide(input.approvalId, {
+        optionId: input.optionId,
+        ...(input.note ? { note: input.note } : {}),
+        ...(input.edited !== undefined ? { edited: input.edited } : {}),
+      }),
     [transport],
   );
   const answer = useCallback((input: QuestionAnswerInput) => transport.answer(input.questionId, { values: input.values, notes: input.notes } as AnswerDraft), [transport]);
 
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities };
 }

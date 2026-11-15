@@ -36,6 +36,12 @@ export interface AgentComposerProps {
   /** The agent is mid-turn: Stop replaces Send (the send key still queues). */
   running?: boolean;
   onStop?: () => void;
+  /**
+   * Whether this backend can stop a turn. Default true. Pass
+   * `chat.capabilities?.cancel !== false`: when false the composer still shows the
+   * turn is running, but offers no Stop.
+   */
+  canStop?: boolean;
   /** The last send's outcome, shown under the input. */
   outcome?: SendOutcome | null;
   commands?: PromptCmd[];
@@ -66,7 +72,7 @@ export interface AgentComposerProps {
  * hidden composer mounted per thread.
  */
 export function AgentComposer(props: AgentComposerProps): ReactNode {
-  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, disabled, placeholder, className } = props;
+  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, canStop = true, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, disabled, placeholder, className } = props;
   const labels = mergeLabels(props.labels);
   const draft = drafts[threadId] ?? EMPTY_PROMPT_DRAFT;
   const triggers = props.triggers ? (Array.isArray(props.triggers) ? props.triggers : props.triggers.triggers()) : undefined;
@@ -85,14 +91,14 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
     : null;
 
   return (
-    <div data-fancy-chat-composer={threadId} data-fancy-chat-running={running ? "true" : "false"} className={className}>
+    <div data-fancy-chat-composer={threadId} data-fancy-chat-running={running ? "true" : "false"} data-fancy-chat-can-stop={canStop ? "true" : "false"} className={className}>
       <PromptInput
         draft={draft}
         draftKey={threadId}
         onDraftChange={(d) => onDraftsChange({ ...drafts, [threadId]: d })}
         onSubmit={submit}
         running={running}
-        onStop={onStop}
+        onStop={canStop ? onStop : undefined}
         commands={commands}
         mentions={mentions}
         triggers={triggers}

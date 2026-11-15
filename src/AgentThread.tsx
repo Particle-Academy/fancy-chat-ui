@@ -1,11 +1,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Button, ChatMessage, VirtualList } from "@particle-academy/react-fancy";
 import type { ChatMessageData } from "@particle-academy/react-fancy";
-import { type AnswerDraft, type MessageEntry, type Part, type Row, type ThreadState } from "@particle-academy/fancy-chat-js";
+import { type AnswerDraft, type MessageEntry, type Part, type Row, type ThreadState, type ToolEntry } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
 import { ApprovalCard, type ApprovalDecisionInput } from "./ApprovalCard";
-import { PlanRow, ThinkingBlock, ToolRow } from "./activity";
+import { ActivityTimeline, ModelError, PlanRow, ThinkingBlock, ToolRow, type ActivityEntry, type ToolOutputResolver } from "./activity";
 import { mergeLabels, type ChatLabels } from "./labels";
 import { PartView, type PartViewProps } from "./PartView";
 import type { SurfaceProfile } from "./profile";
@@ -64,9 +64,19 @@ export interface AgentThreadProps {
   onShowApproval?: (approvalId: string) => void;
   /** A fixed clock (ms) for undo countdowns. Without it they tick themselves. */
   now?: number;
+  /** Load a tool result's full output behind `outputRef`, lazily, when its row is expanded. */
+  resolveToolOutput?: ToolOutputResolver;
+  /** The host's own view of a tool's output, shown in an expanded row (ToolRow `renderOutput`). */
+  renderToolOutput?: (entry: ToolEntry) => ReactNode;
+  /** Characters of tool output shown per row. Default 4000. */
+  maxToolOutputChars?: number;
+  /** `rows` (the default): one row per thinking block and tool call. `timeline`: a run's consecutive activity in one ActivityTimeline. */
+  activity?: "rows" | "timeline";
+  /** Retry the newest turn when it failed. The failure shows either way. */
+  onRetryTurn?: (turnId: string) => void;
 }
 
-type ListRow = { id: string; row: Row | null };
+type ListRow = { id: string; row: Row | null; group?: ActivityEntry[] };
 
 const EARLIER_ID = "__fancy_chat_earlier__";
 
@@ -107,6 +117,11 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     onRevertUndo,
     onShowApproval,
     now,
+    resolveToolOutput,
+    renderToolOutput,
+    maxToolOutputChars,
+    activity = "rows",
+    onRetryTurn,
   } = props;
   const actionableKinds = actionableKindsProp ?? profile?.hitl?.actionable ?? ["approval", "question"];
   const [ownShowBranches, setOwnShowBranches] = useState(false);
@@ -135,9 +150,26 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     const visible = rows
       .filter((r) => !(r.kind === "message" && r.retracted))
       .filter((r) => showBranches || !branchOf.has(r.id))
-      .map((r) => ({ id: r.id, row: r }));
+      .reduce<ListRow[]>((out, r) => {
+        // Timeline mode: a run's consecutive thinking and tool rows become one item.
+        if (activity === "timeline" && (r.kind === "thinking" || r.kind === "tool")) {
+          const run = r.runId ?? "_";
+          const last = out[out.length - 1];
+          const lastRun = last?.group ? (last.group[0] as ActivityEntry).runId ?? "_" : null;
+          if (last?.group && lastRun === run) {
+            last.group.push(r);
+            return out;
+          }
+          out.push({ id: `activity:${r.id}`, row: null, group: [r] });
+          return out;
+        }
+        out.push({ id: r.id, row: r });
+        return out;
+      }, []);
     return onLoadEarlier && hasEarlier ? [{ id: EARLIER_ID, row: null }, ...visible] : visible;
-  }, [rows, onLoadEarlier, hasEarlier, showBranches, branchOf]);
+  }, [rows, onLoadEarlier, hasEarlier, showBranches, branchOf, activity]);
+
+  const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1] : undefined;
 
   const renderApproval = (approvalId: string) => {
     const record = state.approvals.find((a) => a.approvalId === approvalId);
@@ -227,7 +259,30 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     );
   };
 
+  const toolRowProps = {
+    ...(resolveToolOutput ? { resolveOutput: resolveToolOutput } : {}),
+    ...(renderToolOutput ? { renderOutput: renderToolOutput } : {}),
+    ...(maxToolOutputChars !== undefined ? { maxOutputChars: maxToolOutputChars } : {}),
+    ...(onRetryTool ? { onRetry: onRetryTool } : {}),
+  };
+
   const renderOne = (item: ListRow): ReactNode => {
+    if (item.group) {
+      const running = item.group.some((e) => ("toolCallId" in e ? e.outcome === null : e.live));
+      return (
+        <div data-fancy-chat-row="activity" className="px-3 py-1.5">
+          <ActivityTimeline
+            id={item.id.slice("activity:".length)}
+            entries={item.group}
+            running={running}
+            expanded={expanded?.[item.id]}
+            onExpandedChange={onExpandedChange ? (v) => onExpandedChange(item.id, v) : undefined}
+            toolRowProps={toolRowProps}
+            labels={props.labels}
+          />
+        </div>
+      );
+    }
     if (!item.row) {
       return (
         <div className="flex justify-center py-2">
@@ -251,7 +306,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         body = <ThinkingBlock entry={row} expanded={open} onExpandedChange={setOpen} labels={props.labels} />;
         break;
       case "tool":
-        body = <ToolRow entry={row} expanded={open} onExpandedChange={setOpen} onRetry={onRetryTool} labels={props.labels} />;
+        body = <ToolRow entry={row} expanded={open} onExpandedChange={setOpen} {...toolRowProps} labels={props.labels} />;
         break;
       case "plan":
         body = <PlanRow entry={row} onShowApproval={onShowApproval} labels={props.labels} />;
@@ -289,6 +344,11 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         onScrollToIdResolved={onScrollToIdResolved}
         anchorOnPrepend
       />
+      {lastTurn ? (
+        <div className="px-3 py-1">
+          <ModelError turn={lastTurn} onRetry={onRetryTurn} labels={props.labels} />
+        </div>
+      ) : null}
       {!follow ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
           <Button size="sm" className="pointer-events-auto" data-fancy-chat-jump="" data-fancy-chat-unseen={unseen} onClick={() => onFollowChange(true)}>

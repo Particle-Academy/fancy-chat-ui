@@ -1,13 +1,16 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { projectThread, type ToolEntry } from "@particle-academy/fancy-chat-js";
+import { projectThread, type ThinkingEntry, type ToolEntry } from "@particle-academy/fancy-chat-js";
 
 import { AgentComposer, AgentThread, ThinkingBlock, ToolRow, useAgentThread, type ChatTransport } from "../src/index";
 import { ev, flush, streamedMessage } from "./helpers";
 
 const el = (sel: string) => document.querySelector(sel) as HTMLElement | null;
 
-const tool = (over: Partial<ToolEntry> = {}): ToolEntry => ({
+// Deliberately WITHOUT `output` / `outputLanguage`: an entry projected by an older
+// fancy-chat-js (the peer range admits it) must still render.
+const tool = (over: Partial<ToolEntry> = {}): ToolEntry =>
+  ({
   toolCallId: "tc_1",
   runId: "r_1",
   name: "search_deals",
@@ -19,7 +22,7 @@ const tool = (over: Partial<ToolEntry> = {}): ToolEntry => ({
   outputRef: null,
   truncated: false,
   ...over,
-});
+  }) as ToolEntry;
 
 describe("ToolRow", () => {
   it("shows running, then ok with its duration", () => {
@@ -54,13 +57,13 @@ describe("ToolRow", () => {
 
 describe("ThinkingBlock", () => {
   it("is one collapsible block with a live state", () => {
-    const { rerender } = render(<ThinkingBlock entry={{ runId: "r_1", text: "Look up the deal.", live: true }} />);
+    const { rerender } = render(<ThinkingBlock entry={{ runId: "r_1", text: "Look up the deal.", live: true } as ThinkingEntry /* an older entry, without thinkingId */} />);
     const block = el('[data-fancy-chat-thinking="r_1"]');
     expect(block?.getAttribute("data-fancy-chat-thinking-live")).toBe("true");
     expect(el("[data-fancy-chat-thinking-text]")).toBeNull();
     fireEvent.click(el("[data-fancy-chat-thinking-toggle]")!);
     expect(el("[data-fancy-chat-thinking-text]")?.textContent).toContain("Look up the deal.");
-    rerender(<ThinkingBlock entry={{ runId: "r_1", text: "Look up the deal.", live: false }} />);
+    rerender(<ThinkingBlock entry={{ runId: "r_1", text: "Look up the deal.", live: false } as ThinkingEntry} />);
     expect(el('[data-fancy-chat-thinking="r_1"]')?.getAttribute("data-fancy-chat-thinking-live")).toBe("false");
   });
 });

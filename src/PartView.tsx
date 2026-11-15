@@ -36,6 +36,12 @@ export interface PartViewProps {
 }
 
 const SAFE_HREF = /^https?:\/\//i;
+/**
+ * A root path on THIS origin: one slash, then anything but a second slash or a
+ * backslash. `//host/x` is protocol-relative (another origin), and browsers read
+ * a backslash after the first slash as a slash, so `/\host/x` is too.
+ */
+const SAME_ORIGIN_PATH = /^\/(?![\/\\])/;
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : v === undefined || v === null ? "" : String(v);
@@ -122,7 +128,7 @@ export function PartView(props: PartViewProps): ReactNode {
     }
     case "image": {
       const ref = resolveRef?.(part) ?? null;
-      const src = ref?.src && (SAFE_HREF.test(ref.src) || ref.src.startsWith("/")) ? ref.src : null;
+      const src = ref?.src && (SAFE_HREF.test(ref.src) || SAME_ORIGIN_PATH.test(ref.src)) ? ref.src : null;
       return (
         <div {...handle}>
           {src ? (

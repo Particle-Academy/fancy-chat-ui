@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Badge, Button, Callout, Drawer, Input, Table, Text } from "@particle-academy/react-fancy";
 import type { ButtonColor } from "@particle-academy/react-fancy";
 
+import { FactsExplorer, type FactsExplorerProps } from "./FactsExplorer";
 import { deriveIngestDisplay, type IngestDisplay } from "./ingest";
 import {
   G282_VERSION,
@@ -32,6 +33,17 @@ export interface KnowledgeAdapter {
   /** A g282.1 listing of ingest jobs. */
   ingestJobs?(): Awaitable<unknown>;
   workerStatus?(): Awaitable<unknown>;
+  /**
+   * A subject's facts: a g282.1 listing of prism-graph 0.3 `Fact`s (ScopedGraph
+   * `facts(subject, unaccepted)`). `unaccepted` asks for proposals and beliefs too.
+   */
+  facts?(subject: string, options: { unaccepted: boolean }): Awaitable<unknown>;
+  /** Every version of a subject's facts: a g282.1 listing of `Fact`s (ScopedGraph `timeline`). */
+  factTimeline?(subject: string): Awaitable<unknown>;
+  /** Chunks by id, for a fact's evidence: a g282.1 chunk listing (ScopedGraph `get`). */
+  getChunks?(chunkIds: string[]): Awaitable<unknown>;
+  // There is deliberately NO accept or reject here: deciding a fact is a human's act,
+  // passed to FactsExplorer as callbacks, so nothing holding the adapter can decide.
 }
 
 export interface KnowledgeLabels {
@@ -93,6 +105,14 @@ export interface KnowledgeExplorerProps {
   searchLimit?: number;
   labels?: Partial<KnowledgeLabels>;
   className?: string;
+  /** With an adapter that has `facts`: the facts explorer's subject (uncontrolled start). */
+  factSubject?: string;
+  /** HUMAN-only accept and reject of a proposal; see FactsExplorer. */
+  onAcceptFact?: FactsExplorerProps["onAccept"];
+  onRejectFact?: FactsExplorerProps["onReject"];
+  /** The facts map; `FactGraph` from `./charts`. */
+  factGraph?: FactsExplorerProps["graph"];
+  factsLabels?: FactsExplorerProps["labels"];
 }
 
 const DISPLAY_COLOR: Record<IngestDisplay, ButtonColor> = { done: "emerald", failed: "red", queued: "sky", running: "sky", unknown: "zinc" };
@@ -315,6 +335,17 @@ export function KnowledgeExplorer(props: KnowledgeExplorerProps): ReactNode {
             </Button>
           ) : null}
         </section>
+      ) : null}
+
+      {adapter.facts ? (
+        <FactsExplorer
+          adapter={adapter}
+          {...(props.factSubject !== undefined ? { subject: props.factSubject } : {})}
+          {...(props.onAcceptFact ? { onAccept: props.onAcceptFact } : {})}
+          {...(props.onRejectFact ? { onReject: props.onRejectFact } : {})}
+          {...(props.factGraph ? { graph: props.factGraph } : {})}
+          {...(props.factsLabels ? { labels: props.factsLabels } : {})}
+        />
       ) : null}
 
       {adapter.ingestJobs || adapter.workerStatus ? (

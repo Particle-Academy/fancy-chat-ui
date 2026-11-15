@@ -8,6 +8,57 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Added (CC-fancy-0042, after the Overseer and impactium dogfood)
+
+- **Tool output inline.** `ToolRow` shows a tool result's `output` (fancy-chat-js
+  `ToolEntry.output`): a failure's own words without expanding, an ok result's when
+  expanded, as escaped text or, with `outputLanguage`, as code. Never HTML. It shows
+  at most `maxOutputChars` (default 4000) and says when it is shortened (or when the
+  server cut it). `resolveOutput(ref, entry)` lazily loads the rest behind `outputRef`,
+  once, only when the row is expanded; a failure shows in the row. `AgentThread` takes
+  `resolveToolOutput`, `renderToolOutput` (the host's own view, ToolRow `renderOutput`)
+  and `maxToolOutputChars`, and passes them to every tool row.
+- **`ActivityTimeline`** (on react-fancy Timeline): a run's thinking and tool calls,
+  expanded while running, collapsed to "3 tool calls · 4.2 s · 1 failed" once settled.
+  `AgentThread activity="timeline"` groups each run's consecutive activity into one.
+- **`ModelError`**: a failed turn's reason and Retry (a refusal is neutral, no Retry).
+  `AgentThread` shows it for the newest turn; `onRetryTurn` wires Retry.
+- **Facts explorer** in `./knowledge` (prism-graph 0.3 shapes): `FactsExplorer` lists a
+  subject's facts with status (Accepted, Proposal, Belief); a drawer shows the evidence
+  passages with provenance and the predicate's version timeline; `FactGraph` in
+  `./charts` draws subjects, facts and evidence on fancy-echarts' graph series
+  (`factGraphOption` builds the option without ECharts). Accept and Reject are
+  HUMAN-only callbacks (`onAccept`, `onReject`), never adapter methods, shown on
+  proposals only, locked while in flight. New adapter methods `facts`, `factTimeline`,
+  `getChunks` return g282.1 listings; any other version is refused and named.
+  `KnowledgeExplorer` embeds it when the adapter has `facts`.
+- **`mode: "interval"`** on `createHttpTransport`, for a host with one PHP worker:
+  short polls only while a turn runs (and briefly after an action), with back-off and a
+  pause while the tab is hidden. All timings configurable (`interval`).
+- **Backend capabilities.** `transport.capabilities()` (GET
+  `threads/{id}/capabilities`), `useAgentThread().capabilities`, and AgentComposer
+  `canStop`: pass `canStop={chat.capabilities?.cancel !== false}` and a backend that
+  cannot cancel shows the turn running with no Stop.
+- **Several thinking blocks per run** render as their own rows, in order, each with its
+  `thinkingId` as `data-fancy-chat-thinking`; a bounded duration renders "≤ 1.2 s".
+- README: Install (git over HTTPS, `ignore-scripts`, the lockfile's `git+ssh`), the
+  server routes and their answers, transport modes.
+
+### Fixed
+
+- **SECURITY: an image `src` of `//host/x` was accepted as same-origin.** It is
+  protocol-relative, so it loads from another origin. Only `http(s)://` and a root
+  path (`/x`, not `//x` or `/` followed by a backslash) are accepted now. Nothing to do
+  unless your `resolveRef` returned protocol-relative URLs on purpose; return absolute
+  `https://` URLs instead.
+- `useAgentThread().decide` dropped `edited`; it now passes it to the server.
+- `ToolRow` no longer throws on an entry without `output` (from a fancy-chat-js that
+  predates it).
+- `ActivityTimeline` and the fact versions render react-fancy's Timeline with
+  `animated={false}`: an animated item stays hidden until scrolled into view, and
+  needs IntersectionObserver.
+- The README's Develop section described `file:` sibling links that no longer exist.
+
 ### Added
 
 - **First release: React agent-chat surfaces on react-fancy** (council change

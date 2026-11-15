@@ -11,6 +11,8 @@ export interface ApprovalDecisionInput {
   optionId: string;
   decision: Decision;
   note?: string;
+  /** For an `edit` option: the human's edited proposal, passed to the server as is. */
+  edited?: unknown;
 }
 
 export interface ApprovalCardProps {

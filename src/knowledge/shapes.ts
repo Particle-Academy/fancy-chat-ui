@@ -166,3 +166,48 @@ export function readWorkerStatus(input: unknown): Read<WorkerStatus> {
     ? { ok: true, value: input as unknown as WorkerStatus }
     : { ok: false, error: "knowledge.shape.worker" };
 }
+
+/**
+ * A fact, as prism-graph 0.3 serialises `Fact` (subject, predicate, object,
+ * the chunk ids it rests on, bi-temporal times and the store-filled status).
+ * It arrives inside a g282.1 listing, so the envelope's version gates it.
+ */
+export type FactStatus = "accepted" | "proposed" | "belief";
+
+export interface KnowledgeFact {
+  id: string;
+  subject: string;
+  predicate: string;
+  object: string;
+  /** Chunk ids this fact rests on. */
+  evidence: string[];
+  validFrom: string;
+  validTo: string | null;
+  supersededBy: string | null;
+  status: FactStatus;
+  recordedAt: string | null;
+  expiredAt: string | null;
+}
+
+const FACT_STATUSES = new Set<string>(["accepted", "proposed", "belief"]);
+
+function isFact(v: unknown): v is KnowledgeFact {
+  return (
+    isObj(v) &&
+    str(v.id) &&
+    str(v.subject) &&
+    str(v.predicate) &&
+    str(v.object) &&
+    Array.isArray(v.evidence) &&
+    v.evidence.every(str) &&
+    str(v.validFrom) &&
+    strOrNull(v.validTo ?? null) &&
+    strOrNull(v.supersededBy ?? null) &&
+    str(v.status) &&
+    FACT_STATUSES.has(v.status) &&
+    strOrNull(v.recordedAt ?? null) &&
+    strOrNull(v.expiredAt ?? null)
+  );
+}
+
+export const readFactListing = (input: unknown) => readListing(input, isFact, "fact");

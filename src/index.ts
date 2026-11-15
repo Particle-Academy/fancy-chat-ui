@@ -1,9 +1,11 @@
 export {
   createHttpTransport,
+  type BackendCapabilities,
   type CancelOutcome,
   type ChatTransport,
   type ConnectionState,
   type HttpTransportOptions,
+  type IntervalOptions,
   type SendInput,
   type SendResult,
   type SubscribeHandlers,
@@ -14,7 +16,20 @@ export { DEFAULT_LABELS, mergeLabels, type ChatLabels } from "./labels";
 export { PartView, type PartRenderContext, type PartRenderer, type PartViewProps, type RefResolver } from "./PartView";
 export { ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput } from "./ApprovalCard";
 export { QuestionForm, type QuestionAnswerInput, type QuestionFormProps } from "./QuestionForm";
-export { ThinkingBlock, ToolRow, PlanRow, type ThinkingBlockProps, type ToolRowProps, type PlanRowProps } from "./activity";
+export {
+  ActivityTimeline,
+  ModelError,
+  PlanRow,
+  ThinkingBlock,
+  ToolRow,
+  type ActivityEntry,
+  type ActivityTimelineProps,
+  type ModelErrorProps,
+  type PlanRowProps,
+  type ThinkingBlockProps,
+  type ToolOutputResolver,
+  type ToolRowProps,
+} from "./activity";
 export { AgentThread, type AgentThreadProps } from "./AgentThread";
 export { AgentComposer, EMPTY_PROMPT_DRAFT, type AgentComposerProps, type AgentComposerSendInput, type SendOutcome } from "./AgentComposer";
 export { useAgentThread, type AgentThreadApi, type UseAgentThreadOptions } from "./useAgentThread";

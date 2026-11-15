@@ -5,6 +5,7 @@ import { partToText, validatePart, type Part } from "@particle-academy/fancy-cha
 
 import type { PartRenderer } from "../PartView";
 import { chartSpecToOption, type ChartSpec } from "./spec";
+import { factGraphOption, type FactGraphProps } from "../knowledge/graph";
 
 export { chartSpecToOption, type ChartSpec } from "./spec";
 
@@ -52,4 +53,32 @@ export function chartPartRenderer(options: ChartPartRendererOptions = {}): PartR
       </div>
     );
   };
+}
+
+export interface FactGraphChartProps extends FactGraphProps {
+  /** Pixels. Default 360. */
+  height?: number;
+  /** Passed to fancy-echarts' EChart. */
+  theme?: string | object;
+  renderer?: "canvas" | "svg";
+}
+
+/**
+ * The facts map from `./knowledge` (`factGraphOption`), drawn with fancy-echarts'
+ * graph series: subjects, facts and evidence as nodes, edges from a subject to
+ * its facts and from a fact to its evidence. Clicking a fact node selects it.
+ * Pass it to `FactsExplorer`'s `graph` prop.
+ */
+export function FactGraph({ facts, chunks, onSelectFact, categories, height = 360, theme, renderer }: FactGraphChartProps): ReactNode {
+  const option = factGraphOption(facts, categories, chunks);
+  const onEvents = {
+    click: (p: { dataType?: string; data?: { factId?: unknown } }) => {
+      if (p?.dataType === "node" && typeof p.data?.factId === "string") onSelectFact(p.data.factId);
+    },
+  };
+  return (
+    <div data-fancy-chat-fact-graph="">
+      <EChart option={option as never} onEvents={onEvents} style={{ width: "100%", height }} {...(theme !== undefined ? { theme } : {})} {...(renderer ? { renderer } : {})} />
+    </div>
+  );
 }

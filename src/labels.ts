@@ -53,6 +53,18 @@ export interface ChatLabels {
   hideEarlierVersion: string;
   edit: string;
   heldOnApproval: string;
+  toolOutputTruncated: string;
+  toolOutputLoading: string;
+  toolOutputError: string;
+  /** `exact` is false when any tool's duration was only bounded: the total is "at most". */
+  activitySummary: (tools: number, seconds: string, failed: number, exact?: boolean) => string;
+  /** A bounded, not measured, duration: "≤ 1.2 s". */
+  durationAtMost: (formatted: string) => string;
+  showActivity: string;
+  hideActivity: string;
+  turnFailed: (reason: string | null) => string;
+  turnRefused: string;
+  turnRetry: string;
 }
 
 export const DEFAULT_LABELS: ChatLabels = {
@@ -129,6 +141,17 @@ export const DEFAULT_LABELS: ChatLabels = {
   hideEarlierVersion: "Hide earlier version",
   edit: "Edit",
   heldOnApproval: "Waiting on approval",
+  toolOutputTruncated: "Output shortened",
+  toolOutputLoading: "Loading the full output...",
+  toolOutputError: "The full output could not be loaded.",
+  activitySummary: (tools, seconds, failed, exact = true) =>
+    `${tools} tool ${tools === 1 ? "call" : "calls"} · ${exact ? "" : "≤ "}${seconds} s${failed > 0 ? ` · ${failed} failed` : ""}`,
+  durationAtMost: (formatted) => `≤ ${formatted}`,
+  showActivity: "Show steps",
+  hideActivity: "Hide steps",
+  turnFailed: (reason) => (reason ? `The agent stopped: ${reason}` : "The agent stopped with an error."),
+  turnRefused: "The agent declined this request.",
+  turnRetry: "Retry",
 };
 
 export function mergeLabels(labels?: Partial<ChatLabels>): ChatLabels {

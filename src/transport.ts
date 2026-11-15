@@ -1,7 +1,8 @@
 import type { AnswerDraft, ChatEvent, Part } from "@particle-academy/fancy-chat-js";
 
-export type TransportMode = "sse" | "poll";
-export type ConnectionState = "connecting" | "live" | "polling" | "retrying" | "closed";
+export type TransportMode = "sse" | "poll" | "interval";
+/** `idle` and `paused` are interval mode's: nothing runs, or the tab is hidden. */
+export type ConnectionState = "connecting" | "live" | "polling" | "retrying" | "idle" | "paused" | "closed";
 
 export interface SubscribeHandlers {
   /** The last seq the client has applied; every (re)connect resumes after it. */
@@ -10,6 +11,13 @@ export interface SubscribeHandlers {
   onMode?: (mode: TransportMode) => void;
   onConnection?: (state: ConnectionState) => void;
   onError?: (error: unknown) => void;
+  /**
+   * Whether the thread has a turn in flight (pending, running or cancelling).
+   * Interval mode polls only while this is true, or shortly after an action.
+   * The thread store supplies it; without it, interval mode treats the thread
+   * as always active.
+   */
+  active?: () => boolean;
 }
 
 export interface SendInput {
@@ -31,6 +39,14 @@ export interface SendResult {
   typedDecision?: { approvalId: string; optionId: string; decision: string; state: string };
 }
 
+/** What the server's backend can do (fancy-chat-php `AgentBackend::capabilities()`). */
+export interface BackendCapabilities {
+  /** The backend can stop a running turn. When false, offer no Stop. */
+  cancel: boolean;
+  steering: boolean;
+  approvals: boolean;
+}
+
 export type CancelOutcome = "ok" | "not-running" | "no-turn" | "unsupported" | "refused" | "uncertain";
 
 /**
@@ -50,6 +66,8 @@ export interface ChatTransport {
   answer(questionId: string, input: AnswerDraft): Promise<unknown>;
   /** Revert an undoable action inside its window. The server refuses a late or non-human revert. */
   revertUndo(actionId: string): Promise<unknown>;
+  /** OPTIONAL: what the backend can do. Without it, the hook reports `capabilities: null`. */
+  capabilities?(): Promise<BackendCapabilities>;
 }
 
 export interface HttpTransportOptions {
@@ -58,8 +76,14 @@ export interface HttpTransportOptions {
   threadId: string;
   fetch?: typeof fetch;
   EventSource?: typeof EventSource;
-  /** `auto` tries SSE and falls back to long-poll. Default `auto`. */
+  /**
+   * `auto` tries SSE and falls back to long-poll. Default `auto`.
+   * `interval` is for a host that cannot hold a request open (one PHP worker, say):
+   * short polls with `wait=0`, only while a turn runs; see `interval`.
+   */
   mode?: "auto" | TransportMode;
+  /** Interval mode's timing. Every number is milliseconds. */
+  interval?: IntervalOptions;
   /** Consecutive SSE failures, before any event arrived, that switch to long-poll. Default 2. */
   sseFailuresBeforePoll?: number;
   /** Long-poll hold in milliseconds, sent as `wait` (fancy-chat-php reads milliseconds). Default 25000. */
@@ -79,6 +103,26 @@ export interface HttpTransportOptions {
    * filtering by it is the host's policy on the server.
    */
   profileId?: string;
+}
+
+export interface IntervalOptions {
+  /** Between polls while a turn runs, after one that brought events. Default 1500. */
+  activeMs?: number;
+  /** Each empty poll while a turn runs multiplies the gap by this. Default 1.5 (1 disables). */
+  emptyBackoff?: number;
+  /** The empty-answer back-off stops growing here. Default 10000. */
+  maxActiveMs?: number;
+  /** After an error the gap doubles from activeMs, up to this. Default 30000. */
+  maxBackoffMs?: number;
+  /**
+   * After an action (send, decide, answer, cancel, unsend, revert) it keeps polling
+   * this long even before a turn shows up in the log. Default 4000.
+   */
+  graceMs?: number;
+  /** Poll this often while nothing runs. Default null: do not poll while idle. */
+  idleMs?: number | null;
+  /** Stop polling while the document is hidden; catch up the moment it is shown. Default true. */
+  pauseWhenHidden?: boolean;
 }
 
 function parseEvents(data: string): ChatEvent[] {
@@ -126,6 +170,13 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
     return json;
   };
 
+  // Interval mode: every subscription's wake, called after any action.
+  const wakers = new Set<() => void>();
+  const woken = <T,>(p: Promise<T>): Promise<T> => {
+    for (const w of [...wakers]) w();
+    return p;
+  };
+
   const poll = (after: number, waitMs: number, signal?: AbortSignal) =>
     request("GET", `${thread}/events/poll?after=${after}&wait=${Math.round(waitMs)}${profileQuery}`, undefined, signal) as Promise<{ events: ChatEvent[]; next: number }>;
 
@@ -136,7 +187,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
       let timer: ReturnType<typeof setTimeout> | null = null;
       let failures = 0;
       let delivered = false;
-      let mode: TransportMode = options.mode === "poll" || !ES ? "poll" : "sse";
+      let mode: TransportMode = options.mode === "interval" ? "interval" : options.mode === "poll" || !ES ? "poll" : "sse";
       const abort = new AbortController();
 
       const later = (fn: () => void) => {
@@ -199,24 +250,116 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
         };
       };
 
+      // ---- interval mode: short polls, only while something runs.
+      const iv = options.interval ?? {};
+      const activeMs = iv.activeMs ?? 1500;
+      const emptyBackoff = iv.emptyBackoff ?? 1.5;
+      const maxActiveMs = iv.maxActiveMs ?? 10000;
+      const maxBackoffMs = iv.maxBackoffMs ?? 30000;
+      const graceMs = iv.graceMs ?? 4000;
+      const idleMs = iv.idleMs ?? null;
+      const pauseWhenHidden = iv.pauseWhenHidden ?? true;
+      const doc = (globalThis as { document?: Document }).document;
+      const isHidden = () => pauseWhenHidden && doc?.visibilityState === "hidden";
+      let gap = activeMs;
+      let errors = 0;
+      let wokeAt = Number.NEGATIVE_INFINITY;
+      let inFlight = false;
+      let paused = false;
+      let again = false;
+
+      const schedule = (ms: number) => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          void tick();
+        }, ms);
+      };
+      const tick = async (): Promise<void> => {
+        if (stopped) return;
+        if (isHidden()) {
+          paused = true;
+          h.onConnection?.("paused");
+          return;
+        }
+        if (inFlight) {
+          again = true;
+          return;
+        }
+        inFlight = true;
+        h.onConnection?.("polling");
+        let delay: number | null;
+        try {
+          const r = await poll(h.after(), 0, abort.signal);
+          if (stopped) return;
+          errors = 0;
+          if (r.events?.length) {
+            h.onEvents(r.events);
+            gap = activeMs;
+          } else {
+            gap = Math.min(maxActiveMs, gap * emptyBackoff);
+          }
+          const running = h.active ? h.active() : true;
+          const graceLeft = Date.now() + gap - wokeAt <= graceMs;
+          delay = running || graceLeft ? gap : idleMs;
+        } catch (error) {
+          if (stopped) return;
+          h.onError?.(error);
+          errors += 1;
+          delay = Math.min(maxBackoffMs, activeMs * 2 ** errors);
+          h.onConnection?.("retrying");
+        } finally {
+          inFlight = false;
+        }
+        if (stopped) return;
+        if (again) {
+          again = false;
+          schedule(0);
+        } else if (delay !== null) {
+          if (errors === 0) h.onConnection?.(h.active && !h.active() && delay === idleMs ? "idle" : "polling");
+          schedule(delay);
+        } else {
+          h.onConnection?.("idle");
+        }
+      };
+      const wake = () => {
+        if (stopped) return;
+        wokeAt = Date.now();
+        gap = activeMs;
+        schedule(0);
+      };
+      const onVisibility = () => {
+        if (stopped || isHidden() || !paused) return;
+        paused = false;
+        schedule(0);
+      };
+
       h.onMode?.(mode);
-      if (mode === "sse") openSse();
+      if (mode === "interval") {
+        wakers.add(wake);
+        doc?.addEventListener("visibilitychange", onVisibility);
+        schedule(0);
+      } else if (mode === "sse") openSse();
       else void runPoll();
 
       return () => {
         stopped = true;
         abort.abort();
         if (timer) clearTimeout(timer);
+        wakers.delete(wake);
+        doc?.removeEventListener("visibilitychange", onVisibility);
         es?.close();
         h.onConnection?.("closed");
       };
     },
     fetchAfter: (after) => poll(after, 0),
-    send: (input) => request("POST", `${thread}/messages`, input) as Promise<SendResult>,
-    cancel: (mode) => request("POST", `${thread}/cancel`, { mode }) as Promise<{ outcome: CancelOutcome }>,
-    unsend: (messageId) => request("DELETE", `${thread}/queue/${encodeURIComponent(messageId)}`) as Promise<{ ok: boolean }>,
-    decide: (approvalId, input) => request("POST", `${base}/approvals/${encodeURIComponent(approvalId)}/decision`, input),
-    answer: (questionId, input) => request("POST", `${base}/questions/${encodeURIComponent(questionId)}/answer`, input),
-    revertUndo: (actionId) => request("POST", `${base}/undo/${encodeURIComponent(actionId)}/revert`, {}),
+    // Each action wakes interval mode once it has landed: it may start or resume a turn.
+    send: (input) => request("POST", `${thread}/messages`, input).then((r) => woken(Promise.resolve(r as SendResult))),
+    cancel: (mode) => request("POST", `${thread}/cancel`, { mode }).then((r) => woken(Promise.resolve(r as { outcome: CancelOutcome }))),
+    unsend: (messageId) => request("DELETE", `${thread}/queue/${encodeURIComponent(messageId)}`).then((r) => woken(Promise.resolve(r as { ok: boolean }))),
+    decide: (approvalId, input) => request("POST", `${base}/approvals/${encodeURIComponent(approvalId)}/decision`, input).then((r) => woken(Promise.resolve(r))),
+    answer: (questionId, input) => request("POST", `${base}/questions/${encodeURIComponent(questionId)}/answer`, input).then((r) => woken(Promise.resolve(r))),
+    revertUndo: (actionId) => request("POST", `${base}/undo/${encodeURIComponent(actionId)}/revert`, {}).then((r) => woken(Promise.resolve(r))),
+    capabilities: () => request("GET", `${thread}/capabilities`).then((r) => (r as { capabilities: BackendCapabilities }).capabilities),
   };
 }

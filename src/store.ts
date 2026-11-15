@@ -137,6 +137,9 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
         onMode: (mode) => publish({ mode }, false),
         onConnection: (connection) => publish({ connection }, false),
         onError: (error) => publish({ error }, false),
+        // A turn in flight: what interval mode polls for. A parked turn waits on a
+        // human, whose action wakes the transport, so it does not count.
+        active: () => state.turns.some((t) => t.state === "pending" || t.state === "running" || t.state === "cancelling"),
       });
       stopNudge =
         options.nudge?.((seq) => {

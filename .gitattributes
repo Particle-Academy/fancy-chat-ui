@@ -1,2 +1,5 @@
 # Committed build output (installed from git without building): never converted.
 dist/** -text
+# Sources are LF on every checkout: a Windows runner (core.autocrlf=true) would
+# otherwise build CRLF into the committed source maps and metafiles.
+src/** text eol=lf

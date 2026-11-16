@@ -118,6 +118,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # dist/ is committed so a git install needs no build (no prepare, no
+      # devDependencies, nothing nested). It must be the build of this commit.
+      - name: Committed dist is current
+        run: git diff --exit-code --stat -- dist
+
       # Owner ruling 2026-11-15: the whole Prism ecosystem is an optional addon.
       # The test suite checks the manifest and the source; this re-runs the check
       # with the build's import graph (dist/metafile-*.json) present.

@@ -25,6 +25,11 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Fixed (impactium follow-ups)
 
+- **A git install no longer nests builds.** `dist/` is committed and `prepare` is gone,
+  so installing fancy-chat-ui from git runs no build and installs none of its
+  devDependencies. Before, `prepare` made npm install this package's devDependencies,
+  which are themselves git pins (fancy-chat-js, react-fancy), each building in turn:
+  impactium measured 20+ minutes. CI checks the committed `dist/` is current.
 - **A settled timeline hid its failures.** `ActivityTimeline` collapsed on settle and
   unmounted every row, so a failed tool's text sat behind "Show steps". Collapsed, it
   now keeps each failed tool's row visible, failure text included.

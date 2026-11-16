@@ -45,17 +45,13 @@ Until the first npm publish, install from git, over **HTTPS**, pinned to a commi
 npm install "git+https://github.com/Particle-Academy/react-fancy.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-js.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-ui.git#<sha>"
 ```
 
-- **Each package builds its `dist` in `prepare`.** npm runs `prepare` for a git
-  dependency, so the install compiles them. **With `ignore-scripts=true`** (in `.npmrc`
-  or the environment) npm skips `prepare` and the package arrives with no `dist`,
-  so a bundler later reports an unresolvable entry. A postinstall check cannot catch
-  this, because `ignore-scripts` skips postinstall too. Run
-  `npx fancy-chat-check-install` after installing (and in CI): it exits 1 and names
-  every `@particle-academy` package whose entry files are missing, with the cause.
-  It is a committed script in fancy-chat-js, so it works without any build. To fix,
-  allow scripts for the install, or build the three in order (react-fancy,
-  fancy-chat-js, fancy-chat-ui) with `npm run build` inside each
-  `node_modules/@particle-academy/<pkg>`.
+- **fancy-chat-js and fancy-chat-ui commit their `dist/`** and have no `prepare`, so
+  a git install of either builds nothing and installs none of its devDependencies
+  (it is quick, and `ignore-scripts=true` makes no difference). CI fails a commit
+  whose `dist/` is stale. react-fancy's unreleased `cc0042-triggers` branch still
+  builds in `prepare`, once, at the host level; with `ignore-scripts=true` it arrives
+  without `dist`. Run `npx fancy-chat-check-install` after installing (and in CI): it
+  exits 1 and names every `@particle-academy` package whose entry files are missing.
 - **npm writes `git+ssh://git@github.com/...` into `package-lock.json`** for a GitHub
   dependency even when you installed it over HTTPS. A machine with no GitHub SSH key
   (a CI runner) still installs: npm falls back to HTTPS for a public GitHub repo. If

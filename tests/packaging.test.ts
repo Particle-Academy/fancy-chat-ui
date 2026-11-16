@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -90,11 +91,6 @@ describe("packaging", () => {
 });
 
 describe("installable from git", () => {
-  it("builds dist in prepare, which npm runs for a git dependency", () => {
-    expect(pkg.scripts.prepare).toBe("npm run build");
-    expect(pkg.scripts.build).toBe("tsup");
-  });
-
   it("dev dependencies on unreleased siblings are pinned to a commit, never a local path", () => {
     for (const [name, spec] of Object.entries(pkg.devDependencies as Record<string, string>)) {
       expect(spec, name).not.toMatch(/^file:/);
@@ -102,5 +98,19 @@ describe("installable from git", () => {
       expect(spec, name).not.toMatch(/^(github:|git\+ssh:|git@)/);
       if (spec.startsWith("git+https:")) expect(spec, name).toMatch(/^git\+https:\/\/github\.com\/Particle-Academy\/[a-z0-9-]+\.git#[0-9a-f]{40}$/);
     }
+  });
+});
+
+describe("installs from git without building", () => {
+  it("has no prepare script, so npm installs no devDependencies and runs no build for a git dependency", () => {
+    const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { scripts: Record<string, string> };
+    expect(manifest.scripts.prepare).toBeUndefined();
+    expect(manifest.scripts.prepack).toBeUndefined();
+  });
+
+  it("commits dist: every entry file the manifest names is tracked by git", () => {
+    const tracked = execFileSync("git", ["ls-files", "dist"], { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" }).split(/\r?\n/).filter(Boolean);
+    const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { main: string; module: string; types: string };
+    for (const entry of [manifest.main, manifest.module, manifest.types]) expect(tracked, entry).toContain(entry.replace(/^\.\//, ""));
   });
 });

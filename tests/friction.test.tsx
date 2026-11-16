@@ -1,8 +1,9 @@
-import { act, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { projectThread } from "@particle-academy/fancy-chat-js";
 import { describe, expect, it, vi } from "vitest";
 
-import { AgentComposer, PartView, createHttpTransport, useAgentThread, type ChatTransport } from "../src/index";
-import { flush } from "./helpers";
+import { AgentComposer, AgentThread, PartView, createHttpTransport, useAgentThread, type ChatTransport } from "../src/index";
+import { ev, flush } from "./helpers";
 
 const el = (sel: string) => document.querySelector(sel) as HTMLElement | null;
 
@@ -116,5 +117,44 @@ describe("capabilities: only a well-formed answer counts", () => {
     const { result } = renderHook(() => useAgentThread({ transport: t }));
     await act(flush);
     expect(result.current.capabilities).toBeNull();
+  });
+});
+
+describe("retry a failed turn with its original input", () => {
+  it("the HTTP transport posts threads/{id}/turns/{turnId}/retry", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ messageId: "m_2", seq: 9, delivery: "sent" }), { status: 201 }));
+    const t = createHttpTransport({ baseUrl: "/c", threadId: "t_1", fetch: fetch as never });
+    await expect(t.retry!("u 1")).resolves.toEqual({ messageId: "m_2", seq: 9, delivery: "sent" });
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/c/threads/t_1/turns/u%201/retry");
+    expect(init.method).toBe("POST");
+  });
+
+  it("useAgentThread().retry calls it; without transport support it rejects", async () => {
+    const retry = vi.fn(async () => ({ messageId: "m", seq: 1, delivery: "sent" }));
+    const { result } = renderHook(() => useAgentThread({ transport: transport({ retry }) }));
+    await act(async () => {
+      await result.current.retry("u_1");
+    });
+    expect(retry).toHaveBeenCalledWith("u_1");
+    const bare = renderHook(() => useAgentThread({ transport: transport() }));
+    await expect(bare.result.current.retry("u_1")).rejects.toThrow(/retry/);
+  });
+
+  it("AgentThread wires Retry to chat.retry by default, and an explicit onRetryTurn wins", async () => {
+    const p = projectThread([
+      ev(1, "turn.started", { turnId: "u_1" }),
+      ev(2, "turn.transition", { turnId: "u_1", action: "start" }),
+      ev(3, "turn.settled", { turnId: "u_1", action: "fail", reason: "output_limit" }),
+    ]);
+    const retry = vi.fn(async () => ({}));
+    const { rerender } = render(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} chat={{ retry }} />);
+    fireEvent.click(el("[data-fancy-chat-turn-retry]")!);
+    expect(retry).toHaveBeenCalledWith("u_1");
+    const onRetryTurn = vi.fn();
+    rerender(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} chat={{ retry }} onRetryTurn={onRetryTurn} />);
+    fireEvent.click(el("[data-fancy-chat-turn-retry]")!);
+    expect(onRetryTurn).toHaveBeenCalledWith("u_1");
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });

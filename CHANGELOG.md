@@ -8,6 +8,20 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Added (impactium follow-ups)
+
+- **Retry a failed turn with its original input.** `transport.retry(turnId)` posts
+  `threads/{id}/turns/{turnId}/retry`; `useAgentThread().retry(turnId)` calls it (and
+  rejects when the transport has no `retry`). `AgentThread` takes `chat` (the hook's
+  result) and its Retry defaults to `chat.retry`; an explicit `onRetryTurn` wins.
+  Requires fancy-chat-js with `TurnEntry.messageId` (068bbe3).
+
+### Fixed (impactium follow-ups)
+
+- **A settled timeline hid its failures.** `ActivityTimeline` collapsed on settle and
+  unmounted every row, so a failed tool's text sat behind "Show steps". Collapsed, it
+  now keeps each failed tool's row visible, failure text included.
+
 ### Added (CC-fancy-0042, after the Overseer and impactium dogfood)
 
 - **Tool output inline.** `ToolRow` shows a tool result's `output` (fancy-chat-js

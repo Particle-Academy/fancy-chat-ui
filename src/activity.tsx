@@ -258,7 +258,8 @@ export function ActivityTimeline({ id, entries, running, expanded, onExpandedCha
   };
   const tools = entries.filter(isTool);
   const totalMs = tools.reduce((sum, t) => sum + (t.durationMs ?? 0), 0);
-  const failed = tools.filter((t) => t.outcome === "failure").length;
+  const failedTools = tools.filter((t) => t.outcome === "failure");
+  const failed = failedTools.length;
   const exact = tools.every((t) => t.durationMs === null || t.durationExact !== false);
   const summary = labels.activitySummary(tools.length, (totalMs / 1000).toFixed(1), failed, exact);
   return (
@@ -271,6 +272,14 @@ export function ActivityTimeline({ id, entries, running, expanded, onExpandedCha
           {open ? labels.hideActivity : labels.showActivity}
         </Button>
       </div>
+      {!open && failedTools.length > 0 ? (
+        // Collapsed, a failure still shows: its row, whose failure text needs no expanding.
+        <div data-fancy-chat-activity-failures="" className="flex flex-col gap-1">
+          {failedTools.map((t) => (
+            <ToolRow key={t.toolCallId} entry={t} {...toolRowProps} labels={l} />
+          ))}
+        </div>
+      ) : null}
       {open ? (
         // Not animated: an animated item stays hidden until it scrolls into view, and a
         // chat's activity must be readable the moment it lands (and in a virtual list).

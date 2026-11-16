@@ -145,7 +145,8 @@ describe("ActivityTimeline", () => {
     const root = el('[data-fancy-chat-activity="r_1"]');
     expect(root?.getAttribute("data-fancy-chat-activity-expanded")).toBe("false");
     expect(el("[data-fancy-chat-activity-summary]")?.textContent).toBe("3 tool calls · 4.2 s · 1 failed");
-    expect(all("[data-fancy-chat-tool]")).toHaveLength(0);
+    // Collapsed: the rows are hidden, except the failed one, whose text must stay visible.
+    expect(all("[data-fancy-chat-tool]").map((t) => t.getAttribute("data-fancy-chat-tool"))).toEqual(["b"]);
   });
 
   it("is expanded while running, one timeline item per entry, toned by outcome", () => {
@@ -186,20 +187,20 @@ describe("ActivityTimeline", () => {
 describe("ModelError (a failed turn, with Retry)", () => {
   it("shows the failure reason and Retry; Retry names the turn", () => {
     const onRetry = vi.fn();
-    render(<ModelError turn={{ turnId: "u_1", state: "settled", outcome: "failed", reason: "provider timed out" }} onRetry={onRetry} />);
+    render(<ModelError turn={{ turnId: "u_1", messageId: null, state: "settled", outcome: "failed", reason: "provider timed out" }} onRetry={onRetry} />);
     expect(el('[data-fancy-chat-turn-error="u_1"]')?.textContent).toContain("provider timed out");
     fireEvent.click(el("[data-fancy-chat-turn-retry]")!);
     expect(onRetry).toHaveBeenCalledWith("u_1");
   });
 
   it("a refusal is not an error: neutral, and no Retry", () => {
-    render(<ModelError turn={{ turnId: "u_1", state: "settled", outcome: "refused", reason: null }} onRetry={() => {}} />);
+    render(<ModelError turn={{ turnId: "u_1", messageId: null, state: "settled", outcome: "refused", reason: null }} onRetry={() => {}} />);
     expect(el('[data-fancy-chat-turn-error="u_1"]')?.getAttribute("data-fancy-chat-turn-error-tone")).toBe("neutral");
     expect(el("[data-fancy-chat-turn-retry]")).toBeNull();
   });
 
   it("renders nothing for a turn that did not fail", () => {
-    render(<ModelError turn={{ turnId: "u_1", state: "settled", outcome: "completed", reason: null }} onRetry={() => {}} />);
+    render(<ModelError turn={{ turnId: "u_1", messageId: null, state: "settled", outcome: "completed", reason: null }} onRetry={() => {}} />);
     expect(el("[data-fancy-chat-turn-error]")).toBeNull();
   });
 
@@ -251,5 +252,42 @@ describe("several thinking blocks per run, and inexact durations", () => {
   it("the timeline summary marks a total that includes an inexact duration", () => {
     render(<ActivityTimeline id="r_1" entries={[tool({ toolCallId: "a", durationMs: 1000 }), tool({ toolCallId: "b", durationMs: 2000, durationExact: false })]} running={false} />);
     expect(el("[data-fancy-chat-activity-summary]")?.textContent).toBe("2 tool calls · ≤ 3.0 s");
+  });
+});
+
+describe("a settled timeline keeps failures visible while collapsed", () => {
+  it("shows each failed tool's name and text without expanding", () => {
+    const entries = [tool({ toolCallId: "a", outcome: "ok", output: "fine" }), tool({ toolCallId: "b", name: "send_email", outcome: "failure", output: "SMTP 550: mailbox unavailable" })];
+    render(<ActivityTimeline id="r_1" entries={entries} running={false} />);
+    expect(el('[data-fancy-chat-activity="r_1"]')?.getAttribute("data-fancy-chat-activity-expanded")).toBe("false");
+    const failures = el("[data-fancy-chat-activity-failures]");
+    expect(failures?.textContent).toContain("send_email");
+    expect(failures?.textContent).toContain("SMTP 550: mailbox unavailable");
+    // Only the failed one, and never the ok output.
+    expect(failures?.textContent).not.toContain("fine");
+    expect(failures?.querySelectorAll('[data-fancy-chat-tool-outcome="failure"]')).toHaveLength(1);
+  });
+
+  it("a failure without text still shows that it failed", () => {
+    render(<ActivityTimeline id="r_1" entries={[tool({ toolCallId: "b", name: "deploy", outcome: "failure", output: null })]} running={false} />);
+    expect(el('[data-fancy-chat-activity-failures] [data-fancy-chat-tool="b"]')?.getAttribute("data-fancy-chat-tool-outcome")).toBe("failure");
+  });
+
+  it("nothing extra when nothing failed, or when expanded (the rows themselves show it)", () => {
+    const { rerender } = render(<ActivityTimeline id="r_1" entries={[tool({ toolCallId: "a" })]} running={false} />);
+    expect(el("[data-fancy-chat-activity-failures]")).toBeNull();
+    rerender(<ActivityTimeline id="r_1" entries={[tool({ toolCallId: "b", outcome: "failure", output: "boom" })]} running={false} expanded />);
+    expect(el("[data-fancy-chat-activity-failures]")).toBeNull();
+    expect(all('[data-fancy-chat-tool="b"]')).toHaveLength(1);
+  });
+
+  it("AgentThread in timeline mode: a settled run's failure text is visible on the page", () => {
+    const p = projectThread([
+      ev(1, "tool.called", { toolCallId: "tc_1", name: "send_email", args: {} }, { runId: "r_1" }),
+      ev(2, "tool.result", { toolCallId: "tc_1", outcome: "failure", output: "SMTP 550 mailbox unavailable" }, { runId: "r_1" }),
+    ]);
+    render(<AgentThread rows={p.rows} state={p.state} follow onFollowChange={() => {}} height={600} activity="timeline" />);
+    expect(el("[data-fancy-chat-activity]")?.getAttribute("data-fancy-chat-activity-expanded")).toBe("false");
+    expect(document.body.textContent).toContain("SMTP 550 mailbox unavailable");
   });
 });

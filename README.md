@@ -21,8 +21,8 @@ packages.
 | `AgentComposer` | `PromptInput` | Controlled per-thread drafts (one composer for N threads via `draftKey`), Stop while running (hidden with `canStop={false}` when the backend cannot cancel; the composer still shows the turn running), and a send-outcome line that keeps the draft on failure. |
 | `PartView` | `ContentRenderer`, `CodeBlock`, `Table`, `Card` | Every core part kind; app kinds through `renderers`; an unknown kind renders its text, never dropped. Links only to http(s). |
 | `ThinkingBlock`, `ToolRow`, `PlanRow` | `Badge`, `Progress`, `CodeBlock` | Thinking blocks (several per run, in order, each with its own `data-fancy-chat-thinking` id); tool rows, with a bounded duration shown as "≤ 1.2 s" (`durationExact: false`) with failure (red) and refusal (neutral) styled apart, Retry on failure only, and the tool's **output inline** (see below). |
-| `ActivityTimeline` | `Timeline` | A run's thinking and tool calls as one timeline: expanded while running, collapsed to "3 tool calls · 4.2 s · 1 failed" once settled. `AgentThread activity="timeline"` uses it. |
-| `ModelError` | `Badge`, `Button` | A turn the model could not finish: its reason and Retry. A refusal shows neutral, with no Retry. `AgentThread` shows it for the newest turn; `onRetryTurn` wires Retry. |
+| `ActivityTimeline` | `Timeline` | A run's thinking and tool calls as one timeline: expanded while running, collapsed to "3 tool calls · 4.2 s · 1 failed" once settled. Collapsed, each FAILED tool's row stays visible with its failure text. `AgentThread activity="timeline"` uses it. |
+| `ModelError` | `Badge`, `Button` | A turn the model could not finish: its reason and Retry. A refusal shows neutral, with no Retry. `AgentThread` shows it for the newest turn; Retry calls `onRetryTurn`, or by default `chat.retry` (pass the hook as `chat`). |
 | `ApprovalCard` | `Card`, `Button`, `Textarea` | Tone and decision from the option KIND, never its label; note; in-flight lock; one actionable at a time. |
 | `QuestionForm` | `RadioGroup`, `CheckboxGroup`, `Textarea` | Controlled drafts; Answer enabled once each required field has an option or a note. |
 
@@ -74,7 +74,7 @@ const transport = useMemo(() => createHttpTransport({ baseUrl: "/fancy-chat", th
 const chat = useAgentThread({ transport });
 const [follow, setFollow] = useState(true);
 
-<AgentThread rows={chat.rows} state={chat.state} follow={follow} onFollowChange={setFollow} onDecide={chat.decide} onAnswer={chat.answer} />
+<AgentThread rows={chat.rows} state={chat.state} follow={follow} onFollowChange={setFollow} onDecide={chat.decide} onAnswer={chat.answer} chat={chat} />
 <AgentComposer threadId={threadId} drafts={drafts} onDraftsChange={setDrafts} running={!!chat.activeTurn}
   onStop={() => chat.cancel("stop")} canStop={chat.capabilities?.cancel !== false}
   onSend={({ text }) => chat.send({ parts: [{ id: "p1", kind: "text", format: "plain", text }] })} />
@@ -89,6 +89,7 @@ const [follow, setFollow] = useState(true);
 | `GET threads/{id}/events/poll?after=&wait=` | 200 `{ events, next }`; `wait` is milliseconds, `0` answers at once |
 | `GET threads/{id}/snapshot?at=` | 200 `{ snapshot, seq, capabilities }`: `snapshot` is the projected state (fancy-chat-js `ThreadState`) at `at` (default now), `seq` its `lastSeq` |
 | `GET threads/{id}/capabilities` | 200 `{ capabilities: { cancel, steering, approvals } }` |
+| `POST threads/{id}/turns/{turnId}/retry` | **201** `{ messageId, seq, delivery }`: re-sends a failed, interrupted or cancelled turn's ORIGINAL message parts as a new turn (`queued` behind a running one). Human actors with `write` access only. The server finds the input through the turn's `messageId`, so it works after a reload. |
 | `POST threads/{id}/cancel` | 200 `{ outcome }` |
 | `DELETE threads/{id}/queue/{messageId}` | 200 `{ ok }` |
 | `POST approvals/{id}/decision` | body `{ optionId, note?, edited? }`; the server resolves the actor |

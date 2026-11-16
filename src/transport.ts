@@ -66,6 +66,12 @@ export interface ChatTransport {
   answer(questionId: string, input: AnswerDraft): Promise<unknown>;
   /** Revert an undoable action inside its window. The server refuses a late or non-human revert. */
   revertUndo(actionId: string): Promise<unknown>;
+  /**
+   * OPTIONAL: re-send a failed, interrupted or cancelled turn's ORIGINAL message as a
+   * new turn (fancy-chat-php `POST threads/{id}/turns/{turnId}/retry`; queued behind a
+   * running turn like any message). The server finds the input, so it works after a reload.
+   */
+  retry?(turnId: string): Promise<SendResult>;
   /** OPTIONAL: what the backend can do. Without it, the hook reports `capabilities: null`. */
   capabilities?(): Promise<BackendCapabilities>;
 }
@@ -360,6 +366,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
     decide: (approvalId, input) => request("POST", `${base}/approvals/${encodeURIComponent(approvalId)}/decision`, input).then((r) => woken(Promise.resolve(r))),
     answer: (questionId, input) => request("POST", `${base}/questions/${encodeURIComponent(questionId)}/answer`, input).then((r) => woken(Promise.resolve(r))),
     revertUndo: (actionId) => request("POST", `${base}/undo/${encodeURIComponent(actionId)}/revert`, {}).then((r) => woken(Promise.resolve(r))),
+    retry: (turnId) => request("POST", `${thread}/turns/${encodeURIComponent(turnId)}/retry`, {}).then((r) => woken(Promise.resolve(r as SendResult))),
     capabilities: () => request("GET", `${thread}/capabilities`).then((r) => (r as { capabilities: BackendCapabilities }).capabilities),
   };
 }

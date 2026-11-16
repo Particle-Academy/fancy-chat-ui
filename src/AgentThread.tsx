@@ -72,8 +72,13 @@ export interface AgentThreadProps {
   maxToolOutputChars?: number;
   /** `rows` (the default): one row per thinking block and tool call. `timeline`: a run's consecutive activity in one ActivityTimeline. */
   activity?: "rows" | "timeline";
-  /** Retry the newest turn when it failed. The failure shows either way. */
+  /** Retry the newest turn when it failed. The failure shows either way. Default: `chat.retry`. */
   onRetryTurn?: (turnId: string) => void;
+  /**
+   * The `useAgentThread` result (or anything with its `retry`): defaults Retry on a
+   * failed turn to `chat.retry`, which re-sends that turn's original message.
+   */
+  chat?: { retry?: (turnId: string) => Promise<unknown> };
 }
 
 type ListRow = { id: string; row: Row | null; group?: ActivityEntry[] };
@@ -122,7 +127,10 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     maxToolOutputChars,
     activity = "rows",
     onRetryTurn,
+    chat,
   } = props;
+  const chatRetry = chat?.retry;
+  const retryTurn = onRetryTurn ?? (chatRetry ? (turnId: string) => void chatRetry(turnId) : undefined);
   const actionableKinds = actionableKindsProp ?? profile?.hitl?.actionable ?? ["approval", "question"];
   const [ownShowBranches, setOwnShowBranches] = useState(false);
   const showBranches = props.onShowBranchesChange ? (props.showBranches ?? false) : (props.showBranches ?? ownShowBranches);
@@ -346,7 +354,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
       />
       {lastTurn ? (
         <div className="px-3 py-1">
-          <ModelError turn={lastTurn} onRetry={onRetryTurn} labels={props.labels} />
+          <ModelError turn={lastTurn} onRetry={retryTurn} labels={props.labels} />
         </div>
       ) : null}
       {!follow ? (

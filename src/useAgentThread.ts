@@ -6,7 +6,7 @@ import { actionableIn } from "./actionable";
 import type { ApprovalDecisionInput } from "./ApprovalCard";
 import type { QuestionAnswerInput } from "./QuestionForm";
 import { createThreadStore, type ThreadSnapshot, type ThreadStore } from "./store";
-import type { BackendCapabilities, ChatTransport, SendInput } from "./transport";
+import type { BackendCapabilities, ChatTransport, SendInput, SendResult } from "./transport";
 
 export interface UseAgentThreadOptions {
   transport: ChatTransport;
@@ -38,6 +38,11 @@ export interface AgentThreadApi extends ThreadSnapshot {
    * fails. Pass `canStop={capabilities?.cancel !== false}` to AgentComposer.
    */
   capabilities: BackendCapabilities | null;
+  /**
+   * Retry a failed turn with its original input (`transport.retry`). Rejects when the
+   * transport cannot retry. Pass the hook to AgentThread as `chat` and its Retry uses this.
+   */
+  retry: (turnId: string) => Promise<SendResult>;
 }
 
 /**
@@ -83,6 +88,10 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   const send = useCallback((input: SendInput) => transport.send(input), [transport]);
   const cancel = useCallback((mode: "stop" | "interrupt") => transport.cancel(mode), [transport]);
   const unsend = useCallback((id: string) => transport.unsend(id), [transport]);
+  const retry = useCallback(
+    (turnId: string) => (transport.retry ? transport.retry(turnId) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry)."))),
+    [transport],
+  );
   const revertUndo = useCallback((id: string) => transport.revertUndo(id), [transport]);
   const decide = useCallback(
     (input: ApprovalDecisionInput) => transport.decide(input.approvalId, {
@@ -94,5 +103,5 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   );
   const answer = useCallback((input: QuestionAnswerInput) => transport.answer(input.questionId, { values: input.values, notes: input.notes } as AnswerDraft), [transport]);
 
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry };
 }

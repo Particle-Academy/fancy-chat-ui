@@ -10,6 +10,13 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Added (impactium follow-ups)
 
+- **The full fact listing on open.** An optional adapter method
+  `listFacts(subject | null, cursor | null, limit)` returning prism-graph's g282.2
+  listing (`{contractVersion: "g282.2", items, nextCursor}`, accepted facts by
+  default): with it, `FactsExplorer` loads every fact when it opens, fills the map at
+  once, pages with Load more, and the subject field filters. Any other version, g282.1
+  included, is refused. Without it nothing changes: facts load once a subject is given.
+  `readFactListingV2`, `G282_2_VERSION`.
 - **Retry a failed turn with its original input.** `transport.retry(turnId)` posts
   `threads/{id}/turns/{turnId}/retry`; `useAgentThread().retry(turnId)` calls it (and
   rejects when the transport has no `retry`). `AgentThread` takes `chat` (the hook's

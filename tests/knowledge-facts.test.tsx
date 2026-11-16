@@ -7,6 +7,7 @@ import {
   KnowledgeExplorer,
   factGraphOption,
   readFactListing,
+  readFactListingV2,
   type FactGraphProps,
   type KnowledgeAdapter,
   type KnowledgeFact,
@@ -300,5 +301,68 @@ describe("facts: the lock and the shape, closely", () => {
 
   it("refuses evidence that is not a list of chunk ids", () => {
     expect(readFactListing(listing([fact({ evidence: ["c_1", 7] as never })])).ok).toBe(false);
+  });
+});
+
+describe("listFacts (prism-graph g282.2): the full accepted listing, on open", () => {
+  const v2 = <T,>(items: T[], nextCursor: string | null = null, contractVersion: unknown = "g282.2") => ({ contractVersion, items, nextCursor });
+
+  it("loads every accepted fact on open, with no subject, and fills the map at once", async () => {
+    const listFacts = vi.fn(async () => v2([fact(), fact({ id: "f_9", subject: "globex", predicate: "ceo", object: "Bo" })]));
+    const seen: FactGraphProps[] = [];
+    const Graph = (p: FactGraphProps) => {
+      seen.push(p);
+      return null;
+    };
+    const a = adapter({ listFacts });
+    await mount(<FactsExplorer adapter={a} graph={Graph} />);
+    expect(listFacts).toHaveBeenCalledWith(null, null, 50);
+    expect(a.facts).not.toHaveBeenCalled();
+    expect(all("[data-fancy-chat-fact]").map((r) => r.getAttribute("data-fancy-chat-fact"))).toEqual(["f_1", "f_9"]);
+    expect(seen.at(-1)?.facts.map((f) => f.subject)).toEqual(["acme", "globex"]);
+  });
+
+  it("the subject is a filter on the listing", async () => {
+    const listFacts = vi.fn(async (subject: string | null) => v2(subject === "globex" ? [fact({ id: "f_9", subject: "globex" })] : [fact()]));
+    await mount(<FactsExplorer adapter={adapter({ listFacts })} />);
+    fireEvent.change(el("[data-fancy-chat-facts-subject] input")!, { target: { value: "globex" } });
+    fireEvent.click(el("[data-fancy-chat-facts-load]")!);
+    await act(flush);
+    expect(listFacts).toHaveBeenLastCalledWith("globex", null, 50);
+    expect(all("[data-fancy-chat-fact]").map((r) => r.getAttribute("data-fancy-chat-fact"))).toEqual(["f_9"]);
+  });
+
+  it("pages with the cursor, appending", async () => {
+    const listFacts = vi.fn(async (_s: string | null, cursor: string | null) => (cursor === null ? v2([fact()], "c2") : v2([fact({ id: "f_2" })])));
+    await mount(<FactsExplorer adapter={adapter({ listFacts })} pageSize={1} />);
+    fireEvent.click(el("[data-fancy-chat-facts-more]")!);
+    await act(flush);
+    expect(listFacts).toHaveBeenLastCalledWith(null, "c2", 1);
+    expect(all("[data-fancy-chat-fact]")).toHaveLength(2);
+    expect(el("[data-fancy-chat-facts-more]")).toBeNull();
+  });
+
+  it("refuses a listing that is not g282.2 (g282.1 included) and shows none of it", async () => {
+    await mount(<FactsExplorer adapter={adapter({ listFacts: async () => v2([fact()], null, "g282.1") })} />);
+    expect(el('[data-fancy-chat-knowledge-error="facts"]')?.textContent).toContain('"g282.1"');
+    expect(all("[data-fancy-chat-fact]")).toHaveLength(0);
+  });
+
+  it("without listFacts it keeps today's behaviour: nothing until a subject is given", async () => {
+    const a = adapter();
+    await mount(<FactsExplorer adapter={a} />);
+    expect(a.facts).not.toHaveBeenCalled();
+    expect(all("[data-fancy-chat-fact]")).toHaveLength(0);
+  });
+
+  it("KnowledgeExplorer shows the facts section for an adapter with only listFacts", async () => {
+    const { facts: _f, ...rest } = adapter();
+    await mount(<KnowledgeExplorer adapter={{ ...rest, listFacts: async () => v2([fact()]) }} />);
+    expect(all("[data-fancy-chat-fact]")).toHaveLength(1);
+  });
+
+  it("readFactListingV2 gates on g282.2", () => {
+    expect(readFactListingV2(v2([fact()])).ok).toBe(true);
+    expect(readFactListingV2(v2([fact()], null, "g282.1"))).toEqual({ ok: false, error: "knowledge.version", version: "g282.1" });
   });
 });

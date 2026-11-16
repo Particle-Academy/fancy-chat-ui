@@ -77,8 +77,8 @@ const strOrNull = (v: unknown) => v === null || typeof v === "string";
 const int = (v: unknown, min = 0): v is number => typeof v === "number" && Number.isInteger(v) && v >= min;
 const intOrNull = (v: unknown) => v === null || int(v);
 
-function version(v: Obj): Read<never> | null {
-  if (v.contractVersion === G282_VERSION) return null;
+function version(v: Obj, expected: string = G282_VERSION): Read<never> | null {
+  if (v.contractVersion === expected) return null;
   const seen = v.contractVersion;
   return { ok: false, error: "knowledge.version", version: seen === undefined || seen === null ? null : String(seen) };
 }
@@ -111,9 +111,9 @@ function isChunk(v: unknown): v is KnowledgeChunk {
 
 const STATES = new Set<string>(["queued", "running", "done", "failed"]);
 
-function readListing<T>(input: unknown, isItem: (v: unknown) => v is T, what: string): Read<KnowledgeListing<T>> {
+function readListing<T>(input: unknown, isItem: (v: unknown) => v is T, what: string, expected: string = G282_VERSION): Read<KnowledgeListing<T>> {
   if (!isObj(input)) return { ok: false, error: "knowledge.shape" };
-  const refused = version(input);
+  const refused = version(input, expected);
   if (refused) return refused;
   if (!Array.isArray(input.items) || !strOrNull(input.nextCursor)) return { ok: false, error: "knowledge.shape" };
   if (!input.items.every(isItem)) return { ok: false, error: `knowledge.shape.${what}` };
@@ -211,3 +211,10 @@ function isFact(v: unknown): v is KnowledgeFact {
 }
 
 export const readFactListing = (input: unknown) => readListing(input, isFact, "fact");
+
+/**
+ * prism-graph's full fact listing, `listFacts(subject?, cursor?, limit?)`: contract
+ * `g282.2` (accepted facts by default, paged). Anything else, g282.1 included, is refused.
+ */
+export const G282_2_VERSION = "g282.2" as const;
+export const readFactListingV2 = (input: unknown) => readListing(input, isFact, "fact", G282_2_VERSION) as Read<{ contractVersion: string; items: KnowledgeFact[]; nextCursor: string | null }>;

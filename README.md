@@ -181,6 +181,10 @@ import { FactGraph } from "@particle-academy/fancy-chat-ui/charts";
   `facts`), `factTimeline(subject)` (`timeline`), `getChunks(ids)` (`get`). Each
   returns a g282.1 listing (`{ contractVersion: "g282.1", items, nextCursor }`) of
   prism-graph `Fact`s or chunks; any other version is refused and named.
+- **The full listing (optional):** `listFacts(subject | null, cursor | null, limit)`
+  returning a g282.2 listing (prism-graph's `listFacts`, accepted facts by default).
+  With it the explorer loads every fact on open and fills the map; the subject field
+  filters, and Load more pages. Without it, facts load once a subject is entered.
 - **The list:** predicate, value, status (Accepted, Proposal, Belief) and valid-from.
   Proposals and beliefs are asked for by default (`includeUnaccepted`).
 - **The drawer:** the fact, its evidence passages with provenance, and the version

@@ -38,6 +38,13 @@ export interface KnowledgeAdapter {
    * `facts(subject, unaccepted)`). `unaccepted` asks for proposals and beliefs too.
    */
   facts?(subject: string, options: { unaccepted: boolean }): Awaitable<unknown>;
+  /**
+   * The full fact listing (prism-graph `listFacts`, contract g282.2): `{contractVersion:
+   * "g282.2", items, nextCursor}`, accepted facts by default. With it, FactsExplorer loads
+   * every fact on open and the subject is a filter; without it, nothing loads until a
+   * subject is entered (and `facts` is used).
+   */
+  listFacts?(subject: string | null, cursor: string | null, limit: number): Awaitable<unknown>;
   /** Every version of a subject's facts: a g282.1 listing of `Fact`s (ScopedGraph `timeline`). */
   factTimeline?(subject: string): Awaitable<unknown>;
   /** Chunks by id, for a fact's evidence: a g282.1 chunk listing (ScopedGraph `get`). */
@@ -337,7 +344,7 @@ export function KnowledgeExplorer(props: KnowledgeExplorerProps): ReactNode {
         </section>
       ) : null}
 
-      {adapter.facts ? (
+      {adapter.facts || adapter.listFacts ? (
         <FactsExplorer
           adapter={adapter}
           {...(props.factSubject !== undefined ? { subject: props.factSubject } : {})}

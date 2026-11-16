@@ -2,6 +2,8 @@ export {
   G282_VERSION,
   readChunkListing,
   readFactListing,
+  readFactListingV2,
+  G282_2_VERSION,
   readIngestJob,
   readIngestJobListing,
   readSourceListing,

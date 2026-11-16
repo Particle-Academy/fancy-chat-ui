@@ -4,7 +4,7 @@ import type { ButtonColor } from "@particle-academy/react-fancy";
 
 import type { KnowledgeAdapter } from "./KnowledgeExplorer";
 import { DEFAULT_FACT_GRAPH_CATEGORIES, type FactGraphCategories, type FactGraphComponent } from "./graph";
-import { G282_VERSION, readChunkListing, readFactListing, type FactStatus, type KnowledgeChunk, type KnowledgeFact, type Read } from "./shapes";
+import { G282_VERSION, readChunkListing, readFactListing, readFactListingV2, type FactStatus, type KnowledgeChunk, type KnowledgeFact, type Read } from "./shapes";
 
 type Awaitable<T> = T | Promise<T>;
 
@@ -25,6 +25,7 @@ export interface FactsLabels {
   current: string;
   superseded: string;
   graph: string;
+  loadMore: string;
   categories: FactGraphCategories;
   decisionFailed: string;
   versionRefused: (version: string | null) => string;
@@ -49,6 +50,7 @@ export const DEFAULT_FACTS_LABELS: FactsLabels = {
   current: "Current",
   superseded: "Superseded",
   graph: "Map",
+  loadMore: "Load more",
   categories: DEFAULT_FACT_GRAPH_CATEGORIES,
   decisionFailed: "The decision could not be saved.",
   versionRefused: (v) => `Unsupported knowledge contract version ${v === null ? "(none)" : `"${v}"`}; this explorer reads "${G282_VERSION}". Nothing from it is shown.`,
@@ -75,6 +77,8 @@ export interface FactsExplorerProps {
    */
   onAccept?: (fact: KnowledgeFact) => Awaitable<void>;
   onReject?: (fact: KnowledgeFact) => Awaitable<void>;
+  /** Page size for `listFacts`. Default 50. */
+  pageSize?: number;
   /** The map: `FactGraph` from `@particle-academy/fancy-chat-ui/charts`, or the host's own. Hidden without it. */
   graph?: FactGraphComponent;
   labels?: Partial<FactsLabels>;
@@ -104,7 +108,7 @@ function ErrorLine({ text, area }: { text: string; area: string }) {
  * and is refused unless it carries g282.1. All text renders as plain text.
  */
 export function FactsExplorer(props: FactsExplorerProps): ReactNode {
-  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className } = props;
+  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className, pageSize = 50 } = props;
   const labels = { ...DEFAULT_FACTS_LABELS, ...props.labels };
 
   const [ownSubject, setOwnSubject] = useState(props.subject ?? "");
@@ -119,6 +123,7 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
   };
 
   const [facts, setFacts] = useState<KnowledgeFact[] | null>(null);
+  const [factsCursor, setFactsCursor] = useState<string | null>(null);
   const [factsError, setFactsError] = useState("");
   const [evidence, setEvidence] = useState<KnowledgeChunk[]>([]);
   const [evidenceError, setEvidenceError] = useState("");
@@ -154,6 +159,23 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
   );
 
   const loadFacts = useCallback(() => {
+    if (adapter?.listFacts) {
+      // The full listing: everything on open; the subject only filters.
+      const list = adapter.listFacts.bind(adapter);
+      void read(
+        () => list(subject || null, null, pageSize),
+        readFactListingV2,
+        (v) => {
+          setFacts(v.items);
+          setFactsCursor(v.nextCursor);
+        },
+        (t) => {
+          setFactsError(t);
+          if (t) setFacts(null);
+        },
+      );
+      return;
+    }
     if (!adapter?.facts || !subject) return;
     const list = adapter.facts.bind(adapter);
     void read(
@@ -165,7 +187,22 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
         if (t) setFacts(null);
       },
     );
-  }, [adapter, subject, includeUnaccepted, read]);
+  }, [adapter, subject, includeUnaccepted, read, pageSize]);
+
+  const loadMoreFacts = () => {
+    if (!adapter?.listFacts || !factsCursor) return;
+    const list = adapter.listFacts.bind(adapter);
+    const cursor = factsCursor;
+    void read(
+      () => list(subject || null, cursor, pageSize),
+      readFactListingV2,
+      (v) => {
+        setFacts((prev) => [...(prev ?? []), ...v.items]);
+        setFactsCursor(v.nextCursor);
+      },
+      setFactsError,
+    );
+  };
 
   useEffect(() => loadFacts(), [loadFacts]);
 
@@ -195,7 +232,7 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openKey, adapter, read]);
 
-  if (!adapter?.facts) return null;
+  if (!adapter?.facts && !adapter?.listFacts) return null;
 
   const decide = async (fact: KnowledgeFact, fn: ((f: KnowledgeFact) => Awaitable<void>) | undefined) => {
     if (!fn || busyRef.current) return;
@@ -281,6 +318,12 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
         ) : (
           <Text>{labels.noFacts}</Text>
         )
+      ) : null}
+
+      {!factsError && factsCursor && adapter.listFacts ? (
+        <Button size="sm" variant="ghost" data-fancy-chat-facts-more="" onClick={loadMoreFacts}>
+          {labels.loadMore}
+        </Button>
       ) : null}
 
       {Graph && facts && facts.length && !factsError ? (

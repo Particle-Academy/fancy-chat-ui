@@ -173,12 +173,14 @@ export function KnowledgeExplorer(props: KnowledgeExplorerProps): ReactNode {
   const [worker, setWorker] = useState<WorkerStatus | null>(null);
   const [workerError, setWorkerError] = useState("");
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  // Set on every mount, not only at creation: StrictMode (dev) runs the cleanup
+  // and then the effect again, and a ref only the cleanup wrote stayed false.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const load = useCallback(
     async <T,>(call: () => Awaitable<unknown>, read: (v: unknown) => Read<T>, onOk: (v: T) => void, onError: (text: string) => void) => {

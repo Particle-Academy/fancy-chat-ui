@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -364,5 +365,16 @@ describe("listFacts (prism-graph g282.2): the full accepted listing, on open", (
   it("readFactListingV2 gates on g282.2", () => {
     expect(readFactListingV2(v2([fact()])).ok).toBe(true);
     expect(readFactListingV2(v2([fact()], null, "g282.1"))).toEqual({ ok: false, error: "knowledge.version", version: "g282.1" });
+  });
+});
+
+describe("FactsExplorer under StrictMode", () => {
+  it("still shows the facts it loaded", async () => {
+    await mount(
+      <StrictMode>
+        <FactsExplorer adapter={adapter()} subject="acme" />
+      </StrictMode>,
+    );
+    expect(all("[data-fancy-chat-fact]").map((r) => r.getAttribute("data-fancy-chat-fact"))).toEqual(["f_1", "f_2", "f_3"]);
   });
 });

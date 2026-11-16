@@ -521,12 +521,12 @@ function ApprovalCard(props) {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const pending = record.state === "pending";
   const options = (record.options ?? []).map((o) => ({ option: o, ...optionTone(o.kind) })).filter((o) => o.tone !== null && o.decision !== null);
   const decide = (option, decision) => {
@@ -593,12 +593,12 @@ function QuestionForm(props) {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const open = (question.state ?? "open") === "open";
   const check = canSubmitAnswer(question, draft);
   const disabled = !actionable || busy;
@@ -876,7 +876,7 @@ function AgentThread(props) {
   const [unseen, setUnseen] = useState(0);
   const [ownDrafts, setOwnDrafts] = useState({});
   const drafts = questionDrafts ?? ownDrafts;
-  const actionableId = useMemo(() => actionableIn(state, actionableKinds), [state, actionableKinds]);
+  const actionableId = actionableIn(state, actionableKinds);
   const branchOf = useMemo(() => {
     const map = /* @__PURE__ */ new Map();
     for (const b of state.branches ?? []) {
@@ -884,8 +884,8 @@ function AgentThread(props) {
       for (const id of b.rowIds) if (!map.has(id)) map.set(id, b.supersededId);
     }
     return map;
-  }, [state, state.branches?.length]);
-  const branchToggleAt = useMemo(() => new Map((state.branches ?? []).map((b) => [b.byId, b.supersededId])), [state, state.branches?.length]);
+  }, [state, rows]);
+  const branchToggleAt = useMemo(() => new Map((state.branches ?? []).map((b) => [b.byId, b.supersededId])), [state, rows]);
   const items = useMemo(() => {
     const visible = rows.filter((r) => !(r.kind === "message" && r.retracted)).filter((r) => showBranches || !branchOf.has(r.id)).reduce((out, r) => {
       if (activity === "timeline" && (r.kind === "thinking" || r.kind === "tool")) {

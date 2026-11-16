@@ -33,12 +33,14 @@ export function QuestionForm(props: QuestionFormProps): ReactNode {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  // Set on every mount, not only at creation: StrictMode (dev) runs the cleanup
+  // and then the effect again, and a ref only the cleanup wrote stayed false.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const open = (question.state ?? "open") === "open";
   const check = canSubmitAnswer(question, draft);

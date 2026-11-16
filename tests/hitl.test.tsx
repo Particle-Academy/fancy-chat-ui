@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ApprovalRecord, QuestionRecord } from "@particle-academy/fancy-chat-js";
@@ -115,5 +116,40 @@ describe("QuestionForm", () => {
     render(<QuestionForm question={{ ...question, state: "answered" }} draft={{ values: {}, notes: {} }} onDraftChange={() => {}} onSubmit={() => {}} actionable />);
     expect(el("[data-fancy-chat-question-submit]")).toBeNull();
     expect(el('[data-fancy-chat-question="q_1"]')?.getAttribute("data-fancy-chat-question-state")).toBe("answered");
+  });
+});
+
+// React's StrictMode (dev) runs every effect's cleanup once and then the effect
+// again. A "mounted" ref that only the cleanup writes stays false after that, so
+// the lock never released: a failed decision left the card locked for good.
+describe("under StrictMode", () => {
+  it("ApprovalCard releases its lock when a decision fails, so the human can try again", async () => {
+    let reject: (e: Error) => void = () => {};
+    const onDecide = vi.fn(() => new Promise<void>((_, r) => (reject = r)));
+    render(
+      <StrictMode>
+        <ApprovalCard record={approval} actionable onDecide={onDecide} />
+      </StrictMode>,
+    );
+    fireEvent.click(el('[data-fancy-chat-option="o_yes"]')!);
+    expect(el('[data-fancy-chat-approval="ap_1"]')?.getAttribute("data-fancy-chat-approval-busy")).toBe("true");
+    await act(async () => reject(new Error("HTTP 503")));
+    expect(el('[data-fancy-chat-approval="ap_1"]')?.getAttribute("data-fancy-chat-approval-busy")).not.toBe("true");
+    expect((el('[data-fancy-chat-option="o_yes"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("QuestionForm releases its lock when an answer fails", async () => {
+    let reject: (e: Error) => void = () => {};
+    const onSubmit = vi.fn(() => new Promise<void>((_, r) => (reject = r)));
+    render(
+      <StrictMode>
+        <QuestionForm question={question} draft={{ values: { when: "now" }, notes: {} }} onDraftChange={() => {}} onSubmit={onSubmit} actionable />
+      </StrictMode>,
+    );
+    fireEvent.click(el("[data-fancy-chat-question-submit]")!);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect((el("[data-fancy-chat-question-submit]") as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => reject(new Error("HTTP 503")));
+    expect((el("[data-fancy-chat-question-submit]") as HTMLButtonElement).disabled).toBe(false);
   });
 });

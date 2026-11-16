@@ -133,12 +133,14 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
   const busyRef = useRef(false);
   const [decisionError, setDecisionError] = useState("");
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  // Set on every mount, not only at creation: StrictMode (dev) runs the cleanup
+  // and then the effect again, and a ref only the cleanup wrote stayed false.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const read = useCallback(
     async <T,>(call: () => Awaitable<unknown>, reader: (v: unknown) => Read<T>, onOk: (v: T) => void, onError: (t: string) => void) => {

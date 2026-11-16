@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -220,5 +221,19 @@ describe("KnowledgeExplorer", () => {
     fireEvent.change(input, { target: { value: "next" } });
     expect(onQueryChange).toHaveBeenCalledWith("next");
     expect(screen.getByDisplayValue("kept")).toBeTruthy();
+  });
+});
+
+describe("KnowledgeExplorer under StrictMode", () => {
+  // StrictMode (dev) runs an effect's cleanup and then the effect again; an
+  // "alive" ref only the cleanup wrote stayed false, so every load was discarded.
+  it("still shows what it loaded", async () => {
+    render(
+      <StrictMode>
+        <KnowledgeExplorer adapter={adapter()} />
+      </StrictMode>,
+    );
+    await act(flush);
+    expect(all("[data-fancy-chat-knowledge-source]").map((r) => r.getAttribute("data-fancy-chat-knowledge-source"))).toEqual(["s_1", "s_2"]);
   });
 });

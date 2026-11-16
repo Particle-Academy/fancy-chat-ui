@@ -179,12 +179,12 @@ function FactsExplorer(props) {
   const busyRef = react.useRef(false);
   const [decisionError, setDecisionError] = react.useState("");
   const alive = react.useRef(true);
-  react.useEffect(
-    () => () => {
+  react.useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const read = react.useCallback(
     async (call, reader, onOk, onError) => {
       try {
@@ -415,12 +415,12 @@ function KnowledgeExplorer(props) {
   const [worker, setWorker] = react.useState(null);
   const [workerError, setWorkerError] = react.useState("");
   const alive = react.useRef(true);
-  react.useEffect(
-    () => () => {
+  react.useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const load = react.useCallback(
     async (call, read, onOk, onError) => {
       try {

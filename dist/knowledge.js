@@ -135,12 +135,12 @@ function FactsExplorer(props) {
   const busyRef = useRef(false);
   const [decisionError, setDecisionError] = useState("");
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const read = useCallback(
     async (call, reader, onOk, onError) => {
       try {
@@ -371,12 +371,12 @@ function KnowledgeExplorer(props) {
   const [worker, setWorker] = useState(null);
   const [workerError, setWorkerError] = useState("");
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    []
-  );
+    };
+  }, []);
   const load = useCallback(
     async (call, read, onOk, onError) => {
       try {

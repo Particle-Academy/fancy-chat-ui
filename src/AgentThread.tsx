@@ -141,7 +141,13 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
   const [ownDrafts, setOwnDrafts] = useState<Record<string, AnswerDraft>>({});
   const drafts = questionDrafts ?? ownDrafts;
 
-  const actionableId = useMemo(() => actionableIn(state, actionableKinds), [state, actionableKinds]);
+  // The store mutates `state` IN PLACE (invariant 7), so its identity never changes
+  // while a thread is open, and a memo keyed on it is computed once, when the thread
+  // opens. `rows` is the change signal instead: the store projects a new array on
+  // every event it applies. actionableIn is a scan of the HITL rows, cheap enough to
+  // run on every render, so it is not memoised at all: an approval that lands on a
+  // later poll or SSE frame must become actionable in the thread that is open.
+  const actionableId = actionableIn(state, actionableKinds);
 
   /** Row id -> the superseded message whose branch it belongs to (the message itself included). */
   const branchOf = useMemo(() => {
@@ -151,8 +157,8 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
       for (const id of b.rowIds) if (!map.has(id)) map.set(id, b.supersededId);
     }
     return map;
-  }, [state, state.branches?.length]);
-  const branchToggleAt = useMemo(() => new Map((state.branches ?? []).map((b) => [b.byId, b.supersededId])), [state, state.branches?.length]);
+  }, [state, rows]); // eslint-disable-line react-hooks/exhaustive-deps -- rows is the change signal; see above
+  const branchToggleAt = useMemo(() => new Map((state.branches ?? []).map((b) => [b.byId, b.supersededId])), [state, rows]); // eslint-disable-line react-hooks/exhaustive-deps -- rows is the change signal; see above
 
   const items = useMemo<ListRow[]>(() => {
     const visible = rows

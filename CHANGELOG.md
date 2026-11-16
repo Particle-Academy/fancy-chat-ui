@@ -10,6 +10,21 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Fixed
 
+- **An approval or question that arrives in an open thread becomes actionable
+  without a remount.** `AgentThread` memoised `actionableId` on the projected
+  `state` object, which the store mutates in place, so the memo was computed once
+  when the thread opened. With a stable `actionableKinds` (a surface profile's
+  `hitl.actionable`, or a constant) nothing else in its key changed, and a later
+  approval rendered as waiting, with its options disabled, until the thread was
+  remounted. It is no longer memoised. The superseded-branch maps are now keyed on
+  `rows` (new on every applied event) as well as `state`. Rows themselves were
+  never affected. Interval polling and SSE both had it. Nothing to do.
+- **Locks and loads under React StrictMode (dev).** `ApprovalCard`,
+  `QuestionForm`, `KnowledgeExplorer` and `FactsExplorer` set their
+  "mounted" ref only at creation and cleared it in the effect cleanup, so
+  StrictMode's cleanup-and-rerun left it false: a failed decision or answer kept
+  the card locked for good, and both explorers discarded everything they loaded.
+  The ref is now set on every mount. Production builds were not affected. Nothing to do.
 - **A failing poll or event stream is no longer silent.** A poll answered 401 or
   419 (a session that ended, or one a login regenerated), or one that never
   answered (a network failure), set `snapshot.error`, which nothing renders, and

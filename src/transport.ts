@@ -196,7 +196,27 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
       let mode: TransportMode = options.mode === "interval" ? "interval" : options.mode === "poll" || !ES ? "poll" : "sse";
       const abort = new AbortController();
 
-      const later = (fn: () => void) => {
+      // A failing poll or stream is never silent: every failure reaches onError,
+      // and each failure STREAK warns once on the console, naming the status. A
+      // 401 or 419 here usually means the session ended or was regenerated (a
+      // login does both); retrying carries on regardless.
+      let failing = false;
+      const failed = (path: string, error: unknown) => {
+        h.onError?.(error);
+        if (failing) return;
+        failing = true;
+        const status = (error as { status?: unknown } | null)?.status;
+        const reason = error instanceof Error ? error.message : String(error);
+        const hint = status === 401 || status === 419 ? " The session may have ended or been regenerated (a login does both)." : "";
+        console.warn(`[fancy-chat] ${path} failed${typeof status === "number" ? ` (HTTP ${status})` : ""}: ${reason}. Retrying.${hint}`);
+      };
+      const healthy = () => {
+        failing = false;
+      };
+      const pollPath = `${thread}/events/poll`;
+      const ssePath = `${thread}/events`;
+
+      const later =(fn: () => void) => {
         timer = setTimeout(() => {
           timer = null;
           if (!stopped) fn();
@@ -209,13 +229,14 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
           try {
             const r = await poll(h.after(), pollWaitMs, abort.signal);
             if (stopped) return;
+            healthy();
             if (r.events?.length) h.onEvents(r.events);
             // A server that answers an empty poll early (or a proxy that cuts
             // the hold) must not turn this loop into a busy spin.
             else await new Promise((res) => setTimeout(res, minPollGapMs));
           } catch (error) {
             if (stopped) return;
-            h.onError?.(error);
+            failed(pollPath, error);
             h.onConnection?.("retrying");
             await new Promise((r) => setTimeout(r, retryMs));
             h.onConnection?.("polling");
@@ -227,10 +248,14 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
         if (!ES) return;
         h.onConnection?.("connecting");
         es = new ES(`${thread}/events?after=${h.after()}${profileQuery}`, { withCredentials: options.withCredentials ?? false });
-        es.onopen = () => h.onConnection?.("live");
+        es.onopen = () => {
+          healthy();
+          h.onConnection?.("live");
+        };
         es.onmessage = (e: MessageEvent) => {
           delivered = true;
           failures = 0;
+          healthy();
           try {
             h.onEvents(parseEvents(String(e.data)));
           } catch (error) {
@@ -241,6 +266,8 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
           es?.close();
           es = null;
           if (stopped) return;
+          // EventSource hands over no status or reason; say which stream failed.
+          failed(ssePath, new Error(`The event stream ${ssePath} failed`));
           failures += 1;
           // A CDN that buffers or kills SSE (Cloudflare HTTP/3, the reason
           // fancy-cf-relay exists) shows up as failures before any event. Once
@@ -299,6 +326,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
           const r = await poll(h.after(), 0, abort.signal);
           if (stopped) return;
           errors = 0;
+          healthy();
           if (r.events?.length) {
             h.onEvents(r.events);
             gap = activeMs;
@@ -310,7 +338,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
           delay = running || graceLeft ? gap : idleMs;
         } catch (error) {
           if (stopped) return;
-          h.onError?.(error);
+          failed(pollPath, error);
           errors += 1;
           delay = Math.min(maxBackoffMs, activeMs * 2 ** errors);
           h.onConnection?.("retrying");

@@ -8,6 +8,23 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A failing poll or event stream is no longer silent.** A poll answered 401 or
+  419 (a session that ended, or one a login regenerated), or one that never
+  answered (a network failure), set `snapshot.error`, which nothing renders, and
+  retried quietly. An SSE failure reported nothing at all. Now every failure
+  reaches `onError` (so `snapshot.error`), SSE included, and each failure streak
+  logs one `console.warn` naming the route and the HTTP status. Retry timing is
+  unchanged. Nothing to do. A console warning is new output in your dev tools.
+
+### Added
+
+- Regression tests for interval polling in an open thread across a hidden tab,
+  a poll in flight when the tab hides, focus loss, a stale `initial` restored on
+  an Inertia visit, and a partial reload. These pass on 0.1.0 as well. They
+  guard behaviour that already worked and are not tests of a fix.
+
 ## [0.1.0] - 2026-11-15
 
 ### Changed

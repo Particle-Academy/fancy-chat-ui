@@ -8,12 +8,14 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-15
+
 ### Changed
 
-- The react-fancy devDependency (the version the suite and the lab build against)
-  moves from the `cc0042-triggers` commit `fec48c0` to `85b2ec4`, the same triggers
-  work rebased onto react-fancy 6.26.1 and versioned 6.27.0. The peer range is
-  unchanged (`>=6.27.0 <7`), so nothing to do.
+- **Builds against the released react-fancy 6.27.0.** The peer range is
+  `>=6.27.0 <7.0`, and the devDependency the suite and the lab build against is
+  `^6.27.0` from npm, no longer a git commit. react-fancy 6.27.0 is the release
+  of the PromptInput `triggers` work this package needs, so nothing to do.
 
 ### Added (impactium follow-ups)
 

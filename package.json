@@ -80,7 +80,7 @@
   "peerDependencies": {
     "@particle-academy/fancy-chat-js": ">=0.1.0 <2.0",
     "@particle-academy/fancy-echarts": ">=6.3.0 <7",
-    "@particle-academy/react-fancy": ">=6.27.0 <7",
+    "@particle-academy/react-fancy": ">=6.27.0 <7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -90,9 +90,9 @@
     }
   },
   "devDependencies": {
-    "@particle-academy/fancy-chat-js": "git+https://github.com/Particle-Academy/fancy-chat-js.git#e013f59a3ae1099664ebf56fc48399a837b6982a",
+    "@particle-academy/fancy-chat-js": "git+https://github.com/Particle-Academy/fancy-chat-js.git#124a4dbcf9b636b9a0a77630b848e4a24f4b414e",
     "@particle-academy/fancy-echarts": "^6.3.0",
-    "@particle-academy/react-fancy": "git+https://github.com/Particle-Academy/react-fancy.git#85b2ec48c518a5e6a65606cf50ad2871ce0354d9",
+    "@particle-academy/react-fancy": "^6.27.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22",

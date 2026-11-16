@@ -85,7 +85,7 @@ describe("packaging", () => {
     // `triggers`). No prerelease: semver ranges exclude prereleases, so every sibling
     // peering on react-fancy (fancy-app-update, fancy-whats-new, fancy-inertia) would
     // refuse one, and a real host's install fails ERESOLVE.
-    expect(pkg.peerDependencies["@particle-academy/react-fancy"]).toBe(">=6.27.0 <7");
+    expect(pkg.peerDependencies["@particle-academy/react-fancy"]).toBe(">=6.27.0 <7.0");
     for (const range of Object.values(pkg.peerDependencies) as string[]) expect(range).not.toMatch(/^file:/);
   });
 });

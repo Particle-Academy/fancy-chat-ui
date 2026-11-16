@@ -8,6 +8,8 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-16
+
 ### Fixed
 
 - **An event the reducer cannot apply no longer stalls the thread.** If
@@ -29,13 +31,6 @@ version number is not a stability promise until 1.0; read the entry.
   reload caught it up. Props AHEAD of the store by `lastSeq` now apply as a snapshot
   jump. Props at or behind it are still ignored, so nothing applied is rolled back.
   No polling was added. Nothing to do.
-
-### Changed
-
-- The fancy-chat-js devDependency (what the suite and the lab build against) is
-  pinned to `141b6d1`, the commit whose `applyEvent` never throws. The peer range
-  is unchanged, `>=0.1.0 <2.0`. Nothing to do.
-
 - **An approval or question that arrives in an open thread becomes actionable
   without a remount.** `AgentThread` memoised `actionableId` on the projected
   `state` object, which the store mutates in place, so the memo was computed once
@@ -63,13 +58,14 @@ version number is not a stability promise until 1.0; read the entry.
 
 - Regression tests for interval polling in an open thread across a hidden tab,
   a poll in flight when the tab hides, focus loss, a stale `initial` restored on
-  an Inertia visit, and a partial reload. These pass on 0.1.0 as well. They
-  guard behaviour that already worked and are not tests of a fix.
-
-## [0.1.0] - 2026-11-15
+  an Inertia visit, and a partial reload. They passed before the fixes above as
+  well: they guard behaviour that already worked and are not tests of a fix.
 
 ### Changed
 
+- The fancy-chat-js devDependency (what the suite and the lab build against) is
+  pinned to the fancy-chat-js commit whose `applyEvent` never throws. The peer
+  range is unchanged, `>=0.1.0 <2.0`. Nothing to do.
 - **Builds against the released react-fancy 6.27.0.** The peer range is
   `>=6.27.0 <7.0`, and the devDependency the suite and the lab build against is
   `^6.27.0` from npm, no longer a git commit. react-fancy 6.27.0 is the release

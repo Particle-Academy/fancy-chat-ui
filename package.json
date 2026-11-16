@@ -90,7 +90,7 @@
     }
   },
   "devDependencies": {
-    "@particle-academy/fancy-chat-js": "git+https://github.com/Particle-Academy/fancy-chat-js.git#141b6d156dffae36b0b57d152bb963890d92eff2",
+    "@particle-academy/fancy-chat-js": "git+https://github.com/Particle-Academy/fancy-chat-js.git#f7139fdc7dd58280c3985e97818a3d59899c1f63",
     "@particle-academy/fancy-echarts": "^6.3.0",
     "@particle-academy/react-fancy": "^6.27.0",
     "@testing-library/dom": "^10.4.0",

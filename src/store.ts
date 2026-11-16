@@ -93,12 +93,29 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
     return !!turn && turn.state === "settled" && turn.outcome !== null && ABANDONED.has(turn.outcome);
   };
 
+  /** A request succeeded: an earlier failure is over, so its error goes. */
+  const healthy = () => {
+    if (snapshot.error !== null) publish({ error: null }, false);
+  };
+
+  // One console warning per store for the first event it refuses, so a server
+  // sending malformed or illegal events is visible without flooding the console.
+  let warnedRefusal = false;
+  const refused = (event: ChatEvent, why: string) => {
+    if (warnedRefusal) return;
+    warnedRefusal = true;
+    console.warn(
+      `[fancy-chat] refused an event it could not apply (seq ${event.seq}, ${String(event.type)}: ${why}). It is skipped and counted in snapshot.dropped; later refusals are not logged.`,
+    );
+  };
+
   const repair = async (gap: Gap) => {
     if (repairing || !running) return;
     repairing = true;
     try {
       const r = await options.transport.fetchAfter(gap.after);
       repairing = false;
+      healthy();
       if (running) ingest(r.events ?? []);
     } catch (error) {
       repairing = false;
@@ -117,8 +134,19 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
         continue;
       }
       const before = state.illegal;
-      applyEvent(state, event);
-      dropped += state.illegal - before;
+      try {
+        applyEvent(state, event);
+      } catch (error) {
+        // fancy-chat-js 0.1.0, inside the peer range, can throw on a malformed
+        // event. A throw here would reach the transport as a failed request, and
+        // it would retry the same batch forever. Skip it and move past it.
+        state.illegal += 1;
+        state.lastSeq = event.seq;
+        refused(event, error instanceof Error ? error.message : String(error));
+      }
+      const illegal = state.illegal - before;
+      if (illegal > 0) refused(event, "illegal under the contract");
+      dropped += illegal;
     }
     const changed = r.applied.length > 0;
     const missingChanged = (r.missing?.after ?? null) !== (snapshot.missing?.after ?? null) || (r.missing?.before ?? null) !== (snapshot.missing?.before ?? null);
@@ -137,6 +165,7 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
         onMode: (mode) => publish({ mode }, false),
         onConnection: (connection) => publish({ connection }, false),
         onError: (error) => publish({ error }, false),
+        onHealthy: healthy,
         // A turn in flight: what interval mode polls for. A parked turn waits on a
         // human, whose action wakes the transport, so it does not count.
         active: () => state.turns.some((t) => t.state === "pending" || t.state === "running" || t.state === "cancelling"),

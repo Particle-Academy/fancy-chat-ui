@@ -11,6 +11,8 @@ export interface SubscribeHandlers {
   onMode?: (mode: TransportMode) => void;
   onConnection?: (state: ConnectionState) => void;
   onError?: (error: unknown) => void;
+  /** A request succeeded (a poll answered, the stream opened or delivered): any earlier error is over. */
+  onHealthy?: () => void;
   /**
    * Whether the thread has a turn in flight (pending, running or cancelling).
    * Interval mode polls only while this is true, or shortly after an action.
@@ -212,6 +214,7 @@ export function createHttpTransport(options: HttpTransportOptions): ChatTranspor
       };
       const healthy = () => {
         failing = false;
+        h.onHealthy?.();
       };
       const pollPath = `${thread}/events/poll`;
       const ssePath = `${thread}/events`;

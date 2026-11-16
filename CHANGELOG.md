@@ -10,6 +10,32 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Fixed
 
+- **An event the reducer cannot apply no longer stalls the thread.** If
+  `applyEvent` threw (fancy-chat-js 0.1.0 does on a `plan.updated` with a null
+  step), the throw reached the transport as a failed request, which retried the
+  same batch forever: every poll received the events and nothing rendered. The
+  store now skips such an event, counts it in `snapshot.dropped`, moves the cursor
+  past it and applies the rest of the batch. The first event a store refuses,
+  whether it threw or is illegal under the contract, logs one `console.warn`. Nothing to do.
+- **`snapshot.error` clears once a later request succeeds:** a poll that
+  answers, a stream that opens or delivers, or a gap repair that lands. It used
+  to stay set forever after one failure. New optional `SubscribeHandlers.onHealthy`,
+  which `createHttpTransport` calls; a custom transport that never calls it keeps
+  the old behaviour. Nothing to do.
+- **Newer page props for the same thread are taken.** `useAgentThread` built its
+  store from `initial` once and ignored every later `initial`. A thread that was
+  not polling (idle, or parked on a human who then acted in another tab) kept
+  showing the old state after an Inertia partial or memory reload, and only a full
+  reload caught it up. Props AHEAD of the store by `lastSeq` now apply as a snapshot
+  jump. Props at or behind it are still ignored, so nothing applied is rolled back.
+  No polling was added. Nothing to do.
+
+### Changed
+
+- The fancy-chat-js devDependency (what the suite and the lab build against) is
+  pinned to `141b6d1`, the commit whose `applyEvent` never throws. The peer range
+  is unchanged, `>=0.1.0 <2.0`. Nothing to do.
+
 - **An approval or question that arrives in an open thread becomes actionable
   without a remount.** `AgentThread` memoised `actionableId` on the projected
   `state` object, which the store mutates in place, so the memo was computed once

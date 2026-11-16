@@ -67,6 +67,7 @@ function createHttpTransport(options) {
       };
       const healthy = () => {
         failing = false;
+        h.onHealthy?.();
       };
       const pollPath = `${thread}/events/poll`;
       const ssePath = `${thread}/events`;
@@ -277,12 +278,24 @@ function createThreadStore(options) {
     const turn = state.turns.find((t) => t.turnId === turnId);
     return !!turn && turn.state === "settled" && turn.outcome !== null && ABANDONED.has(turn.outcome);
   };
+  const healthy = () => {
+    if (snapshot.error !== null) publish({ error: null }, false);
+  };
+  let warnedRefusal = false;
+  const refused = (event, why) => {
+    if (warnedRefusal) return;
+    warnedRefusal = true;
+    console.warn(
+      `[fancy-chat] refused an event it could not apply (seq ${event.seq}, ${String(event.type)}: ${why}). It is skipped and counted in snapshot.dropped; later refusals are not logged.`
+    );
+  };
   const repair = async (gap) => {
     if (repairing || !running) return;
     repairing = true;
     try {
       const r = await options.transport.fetchAfter(gap.after);
       repairing = false;
+      healthy();
       if (running) ingest(r.events ?? []);
     } catch (error) {
       repairing = false;
@@ -300,8 +313,16 @@ function createThreadStore(options) {
         continue;
       }
       const before = state.illegal;
-      applyEvent(state, event);
-      dropped += state.illegal - before;
+      try {
+        applyEvent(state, event);
+      } catch (error) {
+        state.illegal += 1;
+        state.lastSeq = event.seq;
+        refused(event, error instanceof Error ? error.message : String(error));
+      }
+      const illegal = state.illegal - before;
+      if (illegal > 0) refused(event, "illegal under the contract");
+      dropped += illegal;
     }
     const changed = r.applied.length > 0;
     const missingChanged = (r.missing?.after ?? null) !== (snapshot.missing?.after ?? null) || (r.missing?.before ?? null) !== (snapshot.missing?.before ?? null);
@@ -319,6 +340,7 @@ function createThreadStore(options) {
         onMode: (mode) => publish({ mode }, false),
         onConnection: (connection) => publish({ connection }, false),
         onError: (error) => publish({ error }, false),
+        onHealthy: healthy,
         // A turn in flight: what interval mode polls for. A parked turn waits on a
         // human, whose action wakes the transport, so it does not count.
         active: () => state.turns.some((t) => t.state === "pending" || t.state === "running" || t.state === "cancelling")
@@ -1100,6 +1122,20 @@ function useAgentThread(options) {
     store.start();
     return () => store.stop();
   }, [store]);
+  useEffect(() => {
+    if (!initial || !(initial.lastSeq > store.getSnapshot().lastSeq)) return;
+    store.ingest([
+      {
+        v: 1,
+        seq: initial.lastSeq,
+        threadId: "",
+        at: (/* @__PURE__ */ new Date()).toISOString(),
+        type: "thread.snapshot",
+        actor: { kind: "system", id: "fancy-chat-ui" },
+        data: { snapshot: initial }
+      }
+    ]);
+  }, [initial, store]);
   const [capabilities, setCapabilities] = useState(null);
   useEffect(() => {
     setCapabilities(null);

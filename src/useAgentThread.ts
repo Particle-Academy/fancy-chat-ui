@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import type { AnswerDraft, ThreadState } from "@particle-academy/fancy-chat-js";
+import type { AnswerDraft, ChatEvent, ThreadState } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
 
@@ -60,6 +60,26 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
     store.start();
     return () => store.stop();
   }, [store]);
+
+  // Fresh page props for the SAME thread (an Inertia partial or memory reload)
+  // that are AHEAD of the store by seq are taken, as a snapshot jump. A thread
+  // that is not polling (idle, or parked on a human who acted in another tab)
+  // otherwise kept showing the old state until a full reload. Props at or behind
+  // the store are ignored: they would roll back what it has already applied.
+  useEffect(() => {
+    if (!initial || !(initial.lastSeq > store.getSnapshot().lastSeq)) return;
+    store.ingest([
+      {
+        v: 1,
+        seq: initial.lastSeq,
+        threadId: "",
+        at: new Date().toISOString(),
+        type: "thread.snapshot",
+        actor: { kind: "system", id: "fancy-chat-ui" },
+        data: { snapshot: initial as unknown as Record<string, unknown> },
+      } as ChatEvent,
+    ]);
+  }, [initial, store]);
 
   const [capabilities, setCapabilities] = useState<BackendCapabilities | null>(null);
   useEffect(() => {

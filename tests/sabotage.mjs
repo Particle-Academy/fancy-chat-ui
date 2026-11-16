@@ -129,7 +129,7 @@ const MUTATIONS = [
   ["quadratic trailing-slash regex back", "src/transport.ts", "const base = trimTrailingSlashes(options.baseUrl);", "const base = options.baseUrl.replace(/\\/+$/, \"\");"],
   // ./knowledge
   ["any contract version accepted", "src/knowledge/shapes.ts", "if (v.contractVersion === expected) return null;", "return null;"],
-  ["provenance unchecked", "src/knowledge/shapes.ts", "int(v.position) && isProvenance(v.provenance)", "int(v.position)"],
+  ["provenance unchecked", "src/knowledge/shapes.ts", "    int(v.position) &&\n    isProvenance(v.provenance) &&\n", "    int(v.position) &&\n"],
   ["any job state accepted", "src/knowledge/shapes.ts", "STATES.has(input.state) &&", ""],
   ["zero stale window accepted", "src/knowledge/shapes.ts", "int(input.staleAfterMs, 1)", "int(input.staleAfterMs, 0)"],
   ["queued/running shown before jobs land", "src/knowledge/ingest.ts", "if (!options.jobsAvailable) return { display: \"unknown\", alarm: false };", ";"],
@@ -151,6 +151,18 @@ const MUTATIONS = [
   ["legend on a single series", "src/charts/spec.ts", "if (series.length > 1 && names.length)", "if (names.length)"],
   // entry isolation, read from the build's metafile
   ["root entry pulls in ./charts", "src/index.ts", "export { actionableIn } from \"./actionable\";", "export { actionableIn } from \"./actionable\";\nexport { chartPartRenderer } from \"./charts/index\";"],
+  // 0.2.0: attachments, CC-fancy-0044, prism-graph types only
+  ["attachments not passed through", "src/AgentComposer.tsx", "        attachments={attachments}\n", ""],
+  ["attachments off by default", "src/AgentComposer.tsx", "aboveInput, attachments = true, disabled", "aboveInput, attachments = false, disabled"],
+  ["valid-from unformatted", "src/knowledge/FactsExplorer.tsx", "<Table.Cell>{formatDate(f.validFrom)}</Table.Cell>", "<Table.Cell>{f.validFrom}</Table.Cell>"],
+  ["validRange unformatted", "src/knowledge/FactsExplorer.tsx", "labels.validRange(formatDate(v.validFrom), v.validTo ? formatDate(v.validTo) : null)", "labels.validRange(v.validFrom, v.validTo ?? null)"],
+  ["host formatter ignored", "src/knowledge/FactsExplorer.tsx", "formatDate = defaultFormatDate, evidenceLabel", "formatDate: _formatDate, evidenceLabel"],
+  ["a lenient date is guessed", "src/knowledge/FactsExplorer.tsx", "const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;", "const t = Date.parse(iso);"],
+  ["host evidence label ignored", "src/knowledge/FactsExplorer.tsx", "evidenceLabel = defaultEvidenceLabel } = props;", "evidenceLabel: _evidenceLabel } = props;\n  const evidenceLabel = defaultEvidenceLabel;"],
+  ["source title not shown", "src/knowledge/FactsExplorer.tsx", "  return [title, p.headingPath.join(\" / \")", "  return [p.headingPath.join(\" / \")"],
+  ["title URI repeated", "src/knowledge/FactsExplorer.tsx", "p.uri === title ? \"\" : p.uri", "p.uri"],
+  ["sourceTitle of any type", "src/knowledge/shapes.ts", "(v.sourceTitle === undefined || str(v.sourceTitle)) &&", ""],
+  ["prism-graph imported at runtime", "src/knowledge/shapes.ts", "import type { Fact, FactStatus as PrismFactStatus, ListedChunk, ListedSource, ListingPage } from \"@particle-academy/prism-graph\";", "import type { Fact, FactStatus as PrismFactStatus, ListedChunk, ListedSource, ListingPage } from \"@particle-academy/prism-graph\";\nimport { isTrust as _isTrust } from \"@particle-academy/prism-graph\";\nexport const __trust = _isTrust;"],
 ];
 
 function runSuite() {

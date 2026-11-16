@@ -1,6 +1,7 @@
-import { I as IngestJob, W as WorkerStatus, a as FactStatus, b as FactGraphCategories, K as KnowledgeFact, c as FactGraphComponent } from './graph-BAFqfN4s.cjs';
-export { D as DEFAULT_FACT_GRAPH_CATEGORIES, d as FactGraphNode, F as FactGraphProps, G as G282_2_VERSION, e as G282_VERSION, f as IngestState, g as KnowledgeChunk, h as KnowledgeListing, i as KnowledgeProvenance, j as KnowledgeSource, R as Read, k as factGraphOption, r as readChunkListing, l as readFactListing, m as readFactListingV2, n as readIngestJob, o as readIngestJobListing, p as readSourceListing, q as readWorkerStatus } from './graph-BAFqfN4s.cjs';
+import { I as IngestJob, W as WorkerStatus, a as FactStatus, b as FactGraphCategories, K as KnowledgeFact, c as FactGraphComponent, d as KnowledgeChunk } from './graph-DxRlbggl.cjs';
+export { D as DEFAULT_FACT_GRAPH_CATEGORIES, e as FactGraphNode, F as FactGraphProps, G as G282_2_VERSION, f as G282_VERSION, g as IngestState, h as KnowledgeListing, i as KnowledgeProvenance, j as KnowledgeSource, R as Read, k as factGraphOption, r as readChunkListing, l as readFactListing, m as readFactListingV2, n as readIngestJob, o as readIngestJobListing, p as readSourceListing, q as readWorkerStatus } from './graph-DxRlbggl.cjs';
 import { ReactNode } from 'react';
+import '@particle-academy/prism-graph';
 
 type IngestDisplay = "done" | "failed" | "queued" | "running" | "unknown";
 interface IngestDisplayOptions {
@@ -81,9 +82,25 @@ interface FactsExplorerProps {
     pageSize?: number;
     /** The map: `FactGraph` from `@particle-academy/fancy-chat-ui/charts`, or the host's own. Hidden without it. */
     graph?: FactGraphComponent;
+    /**
+     * How every fact date is shown (the table's valid-from and both ends of each
+     * version's `validRange`). Default: `Intl.DateTimeFormat` with `dateStyle: "medium"`
+     * and `timeStyle: "short"` in the user's locale; a value that does not parse is
+     * shown as it came.
+     */
+    formatDate?: (iso: string) => string;
+    /**
+     * The line under each evidence passage. Default: the source title as-is (it can be
+     * a URI), the heading path, the URI when it is not the title, the lines, the trust.
+     */
+    evidenceLabel?: (evidence: KnowledgeChunk) => string;
     labels?: Partial<FactsLabels>;
     className?: string;
 }
+/** The default fact date: medium date, short time, in the user's locale; anything not ISO 8601 as it came. */
+declare function defaultFormatDate(iso: string): string;
+/** The default evidence line: title (as-is), heading path, URI (unless it is the title), lines, trust. */
+declare function defaultEvidenceLabel(c: KnowledgeChunk): string;
 /**
  * A subject's facts with their status (accepted, proposal, belief), a drawer with
  * the evidence passages and the version timeline, an optional map, and HUMAN-only
@@ -195,4 +212,4 @@ interface KnowledgeExplorerProps {
  */
 declare function KnowledgeExplorer(props: KnowledgeExplorerProps): ReactNode;
 
-export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactGraphCategories, FactGraphComponent, FactStatus, FactsExplorer, type FactsExplorerProps, type FactsLabels, type IngestDisplay, type IngestDisplayOptions, IngestJob, type KnowledgeAdapter, KnowledgeExplorer, type KnowledgeExplorerProps, KnowledgeFact, type KnowledgeLabels, WorkerStatus, deriveIngestDisplay };
+export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactGraphCategories, FactGraphComponent, FactStatus, FactsExplorer, type FactsExplorerProps, type FactsLabels, type IngestDisplay, type IngestDisplayOptions, IngestJob, type KnowledgeAdapter, KnowledgeChunk, KnowledgeExplorer, type KnowledgeExplorerProps, KnowledgeFact, type KnowledgeLabels, WorkerStatus, defaultEvidenceLabel, defaultFormatDate, deriveIngestDisplay };

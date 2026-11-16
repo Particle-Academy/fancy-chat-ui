@@ -506,6 +506,13 @@ interface AgentComposerProps {
     meter?: "always" | "near-limit" | "hidden";
     /** Above the input: a queue bar, attachments preview, a mode switch. */
     aboveInput?: ReactNode;
+    /**
+     * Whether files can be attached. Default `true`: what is attached reaches
+     * `onSend` as `attachments` (each with its File), for the host to upload to its
+     * own storage and send as `image` / `file` parts. `false` removes every way to
+     * attach (react-fancy PromptInput `attachments`), for a backend that takes no files.
+     */
+    attachments?: boolean;
     disabled?: boolean;
     placeholder?: string;
     labels?: Partial<ChatLabels>;

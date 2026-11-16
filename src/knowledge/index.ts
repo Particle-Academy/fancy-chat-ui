@@ -21,7 +21,7 @@ export {
 } from "./shapes";
 export { deriveIngestDisplay, type IngestDisplay, type IngestDisplayOptions } from "./ingest";
 export { DEFAULT_KNOWLEDGE_LABELS, KnowledgeExplorer, type KnowledgeAdapter, type KnowledgeExplorerProps, type KnowledgeLabels } from "./KnowledgeExplorer";
-export { DEFAULT_FACTS_LABELS, FactsExplorer, type FactsExplorerProps, type FactsLabels } from "./FactsExplorer";
+export { DEFAULT_FACTS_LABELS, defaultEvidenceLabel, defaultFormatDate, FactsExplorer, type FactsExplorerProps, type FactsLabels } from "./FactsExplorer";
 export {
   DEFAULT_FACT_GRAPH_CATEGORIES,
   factGraphOption,

@@ -1,8 +1,11 @@
+import type { Fact, FactStatus as PrismFactStatus, ListedChunk, ListedSource, ListingPage } from "@particle-academy/prism-graph";
+
 /**
- * The g282.1 shapes agreed with Prism for the knowledge explorer (G-282,
- * sections B and C). These are wire shapes, declared here so the explorer
- * needs no Prism package: a host's adapter (or the optional fancy-chat-prism
- * `./graph` adapter) returns them.
+ * The knowledge explorer reads prism-graph's own shapes (G-282, contract g282.1).
+ * The TYPES are prism-graph's (`@particle-academy/prism-graph`, an optional peer,
+ * imported for types only: its index also loads a `node:sqlite` driver, which a
+ * browser bundle must never pull in). The validators below stay, because a value
+ * off the wire is untrusted whatever its type says.
  *
  * Every listing, ingest job and worker status carries `contractVersion`. Any
  * value other than {@link G282_VERSION}, or none, is REFUSED: the explorer shows
@@ -10,43 +13,24 @@
  */
 export const G282_VERSION = "g282.1" as const;
 
-export interface KnowledgeListing<T> {
-  contractVersion: typeof G282_VERSION;
-  items: T[];
-  nextCursor: string | null;
-}
+export type KnowledgeListing<T> = ListingPage<T>;
 
-export interface KnowledgeSource {
-  sourceId: string;
-  title: string;
-  kind: string | null;
-  createdAt: string;
-  chunkCount: number;
-  trust: string;
-}
+export type KnowledgeSource = ListedSource;
 
-export interface KnowledgeProvenance {
-  uri: string;
-  sha256: string;
-  byteStart: number | null;
-  byteEnd: number | null;
-  lineStart: number | null;
-  lineEnd: number | null;
-  headingPath: string[];
-  recipe: string | null;
-  trust: string;
-  writer: string | null;
-  recordedAt: string;
-}
+export type KnowledgeProvenance = ListedChunk["provenance"];
 
-export interface KnowledgeChunk {
-  chunkId: string;
-  sourceId: string;
-  text: string;
-  position: number;
-  provenance: KnowledgeProvenance;
-}
+/**
+ * prism-graph's listed chunk, plus what fancy-chat-php's KnowledgeBridge adds:
+ * `sourceTitle` (its source's title, from prism-graph 0.4's `getSource`, which may
+ * be a URI and is shown as-is) and `retired` (a cited chunk its source no longer holds).
+ */
+export type KnowledgeChunk = ListedChunk & { readonly sourceTitle?: string; readonly retired?: boolean };
 
+/*
+ * Ingest jobs and worker status are NOT in prism-graph yet (ingest is synchronous
+ * there, a known Prism gap), so these two shapes are the agreed g282.1 wire shapes,
+ * declared here until prism-graph ships them.
+ */
 export type IngestState = "queued" | "running" | "done" | "failed";
 
 export interface IngestJob {
@@ -106,7 +90,16 @@ function isProvenance(v: unknown): v is KnowledgeProvenance {
 }
 
 function isChunk(v: unknown): v is KnowledgeChunk {
-  return isObj(v) && str(v.chunkId) && str(v.sourceId) && str(v.text) && int(v.position) && isProvenance(v.provenance);
+  return (
+    isObj(v) &&
+    str(v.chunkId) &&
+    str(v.sourceId) &&
+    str(v.text) &&
+    int(v.position) &&
+    isProvenance(v.provenance) &&
+    (v.sourceTitle === undefined || str(v.sourceTitle)) &&
+    (v.retired === undefined || typeof v.retired === "boolean")
+  );
 }
 
 const STATES = new Set<string>(["queued", "running", "done", "failed"]);
@@ -167,27 +160,15 @@ export function readWorkerStatus(input: unknown): Read<WorkerStatus> {
     : { ok: false, error: "knowledge.shape.worker" };
 }
 
-/**
- * A fact, as prism-graph 0.3 serialises `Fact` (subject, predicate, object,
- * the chunk ids it rests on, bi-temporal times and the store-filled status).
- * It arrives inside a g282.1 listing, so the envelope's version gates it.
- */
-export type FactStatus = "accepted" | "proposed" | "belief";
+/** prism-graph's fact status: `accepted`, `proposed` or `belief`. */
+export type FactStatus = PrismFactStatus;
 
-export interface KnowledgeFact {
-  id: string;
-  subject: string;
-  predicate: string;
-  object: string;
-  /** Chunk ids this fact rests on. */
-  evidence: string[];
-  validFrom: string;
-  validTo: string | null;
-  supersededBy: string | null;
-  status: FactStatus;
-  recordedAt: string | null;
-  expiredAt: string | null;
-}
+/**
+ * prism-graph's `Fact` as the store serves it: the store fills `status`, so a
+ * served fact always has one. It arrives inside a g282.1 listing, so the
+ * envelope's version gates it.
+ */
+export type KnowledgeFact = Fact & { readonly status: FactStatus };
 
 const FACT_STATUSES = new Set<string>(["accepted", "proposed", "belief"]);
 

@@ -1,35 +1,43 @@
 // @vitest-environment node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-
-// The same checker fancy-chat-js runs on itself (and proves against a negative
-// control there), imported rather than copied.
-// @ts-expect-error -- a plain .mjs script with no declaration file
-import { checkNoPrism } from "@particle-academy/fancy-chat-js/scripts/check-no-prism.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const pkg = JSON.parse(readFileSync(`${root}/package.json`, "utf8"));
 const tsup = readFileSync(`${root}/tsup.config.ts`, "utf8");
 
 describe("packaging", () => {
-  it("has no Prism dependency, import or bundled module (owner 2026-11-15)", () => {
-    const { findings, visited } = checkNoPrism(root);
-    expect(visited.manifest).toBe(true);
-    expect(visited.sources).toBeGreaterThan(5);
-    expect(findings).toEqual([]);
-  });
-
-  it("carries no runtime dependencies: react-fancy, the contract and React are peers", () => {
+  it("carries no runtime dependencies: react-fancy, the contract, prism-graph's types and React are peers", () => {
     expect(pkg.dependencies ?? {}).toEqual({});
     expect(Object.keys(pkg.peerDependencies).sort()).toEqual([
       "@particle-academy/fancy-chat-js",
       "@particle-academy/fancy-echarts",
+      "@particle-academy/prism-graph",
       "@particle-academy/react-fancy",
       "react",
       "react-dom",
     ]);
+  });
+
+  it("no longer runs the withdrawn no-Prism check (owner, 2026-11-16)", () => {
+    expect(pkg.scripts["check:no-prism"]).toBeUndefined();
+  });
+
+  it("takes the knowledge types from prism-graph: an OPTIONAL peer, read for types only", () => {
+    expect(pkg.peerDependencies["@particle-academy/prism-graph"]).toBe(">=0.3.0 <2.0");
+    expect(pkg.peerDependenciesMeta?.["@particle-academy/prism-graph"]).toEqual({ optional: true });
+    const shapes = readFileSync(`${root}/src/knowledge/shapes.ts`, "utf8");
+    expect(shapes).toMatch(/import type \{[^}]*\bListedSource\b[^}]*\} from "@particle-academy\/prism-graph"/);
+  });
+
+  it("no built file imports prism-graph at runtime (its index loads a node:sqlite driver)", () => {
+    const files = readdirSync(`${root}/dist`).filter((f) => /\.(c?js)$/.test(f));
+    expect(files.length).toBeGreaterThan(3);
+    for (const f of files) expect(readFileSync(`${root}/dist/${f}`, "utf8"), f).not.toContain("@particle-academy/prism-graph");
+    // ...while the declarations do name it, so the check above is not vacuous.
+    expect(readFileSync(`${root}/dist/knowledge.d.ts`, "utf8")).toContain("@particle-academy/prism-graph");
   });
 
   it("fancy-echarts is an OPTIONAL peer, and echarts is never listed directly", () => {
@@ -81,11 +89,11 @@ describe("packaging", () => {
 
   it("first-party peer ranges are maintained ranges, not file: links or 0.x carets", () => {
     expect(pkg.peerDependencies["@particle-academy/fancy-chat-js"]).toBe(">=0.1.0 <2.0");
-    // PromptInput `triggers` ships in react-fancy 6.27.0, which refuses 6.26.0 (no
-    // `triggers`). No prerelease: semver ranges exclude prereleases, so every sibling
-    // peering on react-fancy (fancy-app-update, fancy-whats-new, fancy-inertia) would
-    // refuse one, and a real host's install fails ERESOLVE.
-    expect(pkg.peerDependencies["@particle-academy/react-fancy"]).toBe(">=6.27.0 <7.0");
+    // PromptInput `attachments` ships in react-fancy 6.28.0 (`triggers` in 6.27.0). No
+    // prerelease: semver ranges exclude prereleases, so every sibling peering on
+    // react-fancy (fancy-app-update, fancy-whats-new, fancy-inertia) would refuse one,
+    // and a real host's install fails ERESOLVE.
+    expect(pkg.peerDependencies["@particle-academy/react-fancy"]).toBe(">=6.28.0 <7.0");
     for (const range of Object.values(pkg.peerDependencies) as string[]) expect(range).not.toMatch(/^file:/);
   });
 });

@@ -52,6 +52,13 @@ export interface AgentComposerProps {
   meter?: "always" | "near-limit" | "hidden";
   /** Above the input: a queue bar, attachments preview, a mode switch. */
   aboveInput?: ReactNode;
+  /**
+   * Whether files can be attached. Default `true`: what is attached reaches
+   * `onSend` as `attachments` (each with its File), for the host to upload to its
+   * own storage and send as `image` / `file` parts. `false` removes every way to
+   * attach (react-fancy PromptInput `attachments`), for a backend that takes no files.
+   */
+  attachments?: boolean;
   disabled?: boolean;
   placeholder?: string;
   labels?: Partial<ChatLabels>;
@@ -72,7 +79,7 @@ export interface AgentComposerProps {
  * hidden composer mounted per thread.
  */
 export function AgentComposer(props: AgentComposerProps): ReactNode {
-  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, canStop = true, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, disabled, placeholder, className } = props;
+  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, canStop = true, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, attachments = true, disabled, placeholder, className } = props;
   const labels = mergeLabels(props.labels);
   const draft = drafts[threadId] ?? EMPTY_PROMPT_DRAFT;
   const triggers = props.triggers ? (Array.isArray(props.triggers) ? props.triggers : props.triggers.triggers()) : undefined;
@@ -106,6 +113,7 @@ export function AgentComposer(props: AgentComposerProps): ReactNode {
         usedTokens={usedTokens}
         meter={meter}
         aboveInput={aboveInput}
+        attachments={attachments}
         disabled={disabled}
         placeholder={placeholder ?? labels.composerPlaceholder}
         labels={{ stop: labels.stop }}

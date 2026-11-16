@@ -1078,13 +1078,13 @@ function AgentThread(props) {
 }
 var EMPTY_PROMPT_DRAFT = { v: 1, text: "", pills: [], attachments: [] };
 function AgentComposer(props) {
-  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, canStop = true, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, disabled, placeholder, className } = props;
+  const { threadId, drafts, onDraftsChange, onSend, running = false, onStop, canStop = true, outcome, commands, mentions, budgetTokens = 0, usedTokens, meter = "hidden", aboveInput, attachments = true, disabled, placeholder, className } = props;
   const labels = mergeLabels(props.labels);
   const draft = drafts[threadId] ?? EMPTY_PROMPT_DRAFT;
   const triggers = props.triggers ? Array.isArray(props.triggers) ? props.triggers : props.triggers.triggers() : void 0;
   const typed = props.typedApproval ? matchTypedApproval(draft.text, props.typedApproval.approval, props.typedApproval.config) : null;
-  const submit = async (text, attachments) => {
-    const result = await onSend({ threadId, text, attachments });
+  const submit = async (text, attachments2) => {
+    const result = await onSend({ threadId, text, attachments: attachments2 });
     if (result && result.ok === false) return { ok: false, ...result.error ? { error: result.error } : {} };
     return void 0;
   };
@@ -1106,6 +1106,7 @@ function AgentComposer(props) {
         usedTokens,
         meter,
         aboveInput,
+        attachments,
         disabled,
         placeholder: placeholder ?? labels.composerPlaceholder,
         labels: { stop: labels.stop }

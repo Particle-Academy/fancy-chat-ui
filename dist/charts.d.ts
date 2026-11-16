@@ -1,8 +1,9 @@
 import { ReactNode } from 'react';
 import { P as PartRenderer } from './PartView-BUiua884.js';
-import { F as FactGraphProps } from './graph-BAFqfN4s.js';
+import { F as FactGraphProps } from './graph-DxRlbggl.js';
 import '@particle-academy/react-fancy';
 import '@particle-academy/fancy-chat-js';
+import '@particle-academy/prism-graph';
 
 /** The neutral chart spec a `chart` part carries (fancy-chat-js validates it). */
 interface ChartSpec {

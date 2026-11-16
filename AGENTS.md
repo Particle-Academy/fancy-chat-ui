@@ -8,7 +8,9 @@ the envelope's `RULES.md` and must never be copied here.
 ## What this package is
 
 React agent-chat surfaces (CC-fancy-0042), composed from react-fancy, rendering the
-neutral contract in fancy-chat-js. No Prism import.
+fancy-chat-js thread log a server projects Prism Harness runs into. `./knowledge`
+reads prism-graph's TYPES (`import type` only: a runtime import would pull its
+`node:sqlite` driver into a browser bundle; `tests/packaging.test.ts` fails on one).
 
 ## Layout
 

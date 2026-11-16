@@ -1,15 +1,18 @@
 # @particle-academy/fancy-chat-ui
 
-React surfaces for the Fancy agent chat framework (council change CC-fancy-0042),
-composed from react-fancy. It renders the neutral contract in
-`@particle-academy/fancy-chat-js` and talks to any server that speaks it, such as
-`particle-academy/fancy-chat-php`. It is **provider-neutral**: no Prism import, and a
-packaging test enforces that. Prism adapters are optional, in
-`@particle-academy/fancy-chat-prism`.
+React surfaces for the Fancy agent chat (council change CC-fancy-0042), which is
+built on the Prism ecosystem, composed from react-fancy. A turn runs on Prism
+Harness, and `particle-academy/fancy-chat-php` projects the run into the thread log
+of `@particle-academy/fancy-chat-js`. This package renders that log, so it works
+with any server that implements the contract: fancy-chat-php today, and a Node twin
+on `@particle-academy/prism-harness` and `@particle-academy/prism-acp` next.
 
-**Not yet published.** Install from git (see Install). Phases P1 and P2 of
-`.ai/plans/agent-chat-framework.md` are built; the Prism adapters are separate
-packages.
+The knowledge explorer (`./knowledge`) reads prism-graph's own types
+(`@particle-academy/prism-graph`, an optional peer used for types only). prism-graph,
+prism-memory and the other extras are optional: the chat runs without them.
+
+**Not yet published.** Install from git (see Install). Design:
+`.ai/plans/agent-chat-on-prism.md` in the Fancy envelope.
 
 ## What it holds
 
@@ -18,7 +21,7 @@ packages.
 | `createHttpTransport` | `fetch`, `EventSource` | SSE resuming after the last seq, falling back to long-poll when SSE fails before delivering anything (the fancy-cf-relay strategy). `mode: "interval"` for a host that cannot hold a request open (see Transport modes). Decisions carry no actor. |
 | `createThreadStore` / `useAgentThread` | fancy-chat-js | Seq dedupe, gap repair (`after = lastSeq`), the shared reducer and projection. An optional Echo/Reverb `nudge` only triggers a fetch, so a missed broadcast costs nothing. The hook also returns `capabilities` (the backend's `cancel`, `steering`, `approvals`, or null) and `decide({ approvalId, optionId, note?, edited? })`. |
 | `AgentThread` | `VirtualList`, `ChatMessage` | One windowing and follow model: virtualised `role="log"`, controlled `follow` that a reader's scroll breaks, Jump to latest, deep link, Load earlier with prepend anchoring. Typed parts render in ChatMessage's `body`. |
-| `AgentComposer` | `PromptInput` | Controlled per-thread drafts (one composer for N threads via `draftKey`), Stop while running (hidden with `canStop={false}` when the backend cannot cancel; the composer still shows the turn running), and a send-outcome line that keeps the draft on failure. |
+| `AgentComposer` | `PromptInput` | Controlled per-thread drafts (one composer for N threads via `draftKey`), Stop while running (hidden with `canStop={false}` when the backend cannot cancel; the composer still shows the turn running), attachments on by default (`attachments={false}` removes every way to attach), and a send-outcome line that keeps the draft on failure. |
 | `PartView` | `ContentRenderer`, `CodeBlock`, `Table`, `Card` | Every core part kind; app kinds through `renderers`; an unknown kind renders its text, never dropped. Links only to http(s). |
 | `ThinkingBlock`, `ToolRow`, `PlanRow` | `Badge`, `Progress`, `CodeBlock` | Thinking blocks (several per run, in order, each with its own `data-fancy-chat-thinking` id); tool rows, with a bounded duration shown as "≤ 1.2 s" (`durationExact: false`) with failure (red) and refusal (neutral) styled apart, Retry on failure only, and the tool's **output inline** (see below). |
 | `ActivityTimeline` | `Timeline` | A run's thinking and tool calls as one timeline: expanded while running, collapsed to "3 tool calls · 4.2 s · 1 failed" once settled. Collapsed, each FAILED tool's row stays visible with its failure text. `AgentThread activity="timeline"` uses it. |
@@ -57,9 +60,9 @@ npm install "git+https://github.com/Particle-Academy/react-fancy.git#<sha>" "git
   (a CI runner) still installs: npm falls back to HTTPS for a public GitHub repo. If
   your CI forbids SSH outright, rewrite the lockfile's `resolved` entries to
   `git+https://github.com/...` (same sha); `npm ci` accepts either.
-- react-fancy's git pin carries a plain version (`6.27.0`, no prerelease tag), so it
-  satisfies sibling peers such as `>=5.41.0 <7`. This package peers on
-  `@particle-academy/react-fancy >=6.27.0 <7`.
+- This package peers on `@particle-academy/react-fancy >=6.28.0 <7` (PromptInput
+  `attachments`), and optionally on `@particle-academy/prism-graph >=0.3.0 <2.0` for
+  the `./knowledge` types: add it as a dev dependency if you type-check against them.
 
 ## Use
 
@@ -75,6 +78,28 @@ const [follow, setFollow] = useState(true);
   onStop={() => chat.cancel("stop")} canStop={chat.capabilities?.cancel !== false}
   onSend={({ text }) => chat.send({ parts: [{ id: "p1", kind: "text", format: "plain", text }] })} />
 ```
+
+### Attachments
+
+Attaching is on by default. `onSend` receives `attachments` (react-fancy
+`PromptAttachment`s, each with its `File`). Upload them to YOUR storage, then send
+each as a part carrying your own `ref`; the server never accepts bytes in a message:
+
+```tsx
+onSend={async ({ text, attachments }) => {
+  const files = attachments.filter((a) => a.file); // a restored draft's chips carry no File
+  const uploaded = await Promise.all(files.map((a) => upload(a.file!))); // your route: returns { ref }
+  return chat.send({ parts: [
+    { id: "p1", kind: "text", format: "plain", text },
+    ...files.map((a, i) => (a.type ?? "").startsWith("image/")
+      ? { id: `a${i}`, kind: "image", ref: uploaded[i].ref, alt: a.name }
+      : { id: `a${i}`, kind: "file", name: a.name, mimeType: a.type || "application/octet-stream", size: a.bytes, ref: uploaded[i].ref }),
+  ] });
+}}
+```
+
+On fancy-chat-php, the `HarnessBackend` `attachments:` resolver turns each `ref` back
+into Prism media for Harness, after the host's own authorization check.
 
 ## The server routes (fancy-chat-php, or your own)
 
@@ -149,7 +174,9 @@ its part. The adapter covers `search`, `listSources`, `listChunks`, `ingestJobs`
 `workerStatus`, and for facts `facts`, `factTimeline` and `getChunks`.
 
 - **Scope:** the adapter binds it. There is no scope prop, and a user never picks one.
-- **Shapes:** the g282.1 shapes agreed with Prism. Every listing, ingest job and worker
+- **Shapes:** prism-graph's own types (`ListedSource`, `ListedChunk`, `Fact`), plus
+  `sourceTitle` on a chunk. Ingest jobs and worker status are the agreed g282.1 shapes
+  until prism-graph ships them. Every listing, ingest job and worker
   status must carry `contractVersion: "g282.1"`. Any other value, or none, is refused:
   the explorer names the version that arrived and shows none of that data.
 - **Ingest:** until Prism's ingest jobs land, only `done` and `failed` are shown, and
@@ -159,7 +186,7 @@ its part. The adapter covers `search`, `listSources`, `listChunks`, `ingestJobs`
   running. The rule is `deriveIngestDisplay`.
 - **Text:** all text from the store renders as plain text.
 
-#### Facts (prism-graph 0.3)
+#### Facts (prism-graph 0.3 and later)
 
 With an adapter that has `facts`, the explorer adds `FactsExplorer` (also exported on
 its own):
@@ -183,8 +210,17 @@ import { FactGraph } from "@particle-academy/fancy-chat-ui/charts";
   filters, and Load more pages. Without it, facts load once a subject is entered.
 - **The list:** predicate, value, status (Accepted, Proposal, Belief) and valid-from.
   Proposals and beliefs are asked for by default (`includeUnaccepted`).
+- **Dates:** `formatDate?: (iso) => string` formats every fact date, the list's
+  valid-from and both ends of each version's valid range. The default is
+  `Intl.DateTimeFormat` with `dateStyle: "medium"` and `timeStyle: "short"` in the
+  user's locale (`defaultFormatDate`); a value that does not parse shows as it came.
 - **The drawer:** the fact, its evidence passages with provenance, and the version
   timeline of that predicate (oldest first, current marked).
+- **Evidence labels:** `evidenceLabel?: (evidence) => string` replaces the line under
+  each passage. The default (`defaultEvidenceLabel`) leads with the chunk's
+  `sourceTitle`, shown as-is because it can be a URI, then the heading path, the URI
+  (unless it is the title), the lines and the trust. fancy-chat-php's
+  `KnowledgeBridge` fills `sourceTitle` from prism-graph 0.4's scoped `getSource`.
 - **The map:** `FactGraph` (`./charts`, on fancy-echarts' graph series): subjects,
   facts and evidence as nodes, edges subject to fact and fact to evidence. Clicking a
   fact opens it. `factGraphOption` (in `./knowledge`, no ECharts import) builds the

@@ -81,11 +81,44 @@ export interface FactsExplorerProps {
   pageSize?: number;
   /** The map: `FactGraph` from `@particle-academy/fancy-chat-ui/charts`, or the host's own. Hidden without it. */
   graph?: FactGraphComponent;
+  /**
+   * How every fact date is shown (the table's valid-from and both ends of each
+   * version's `validRange`). Default: `Intl.DateTimeFormat` with `dateStyle: "medium"`
+   * and `timeStyle: "short"` in the user's locale; a value that does not parse is
+   * shown as it came.
+   */
+  formatDate?: (iso: string) => string;
+  /**
+   * The line under each evidence passage. Default: the source title as-is (it can be
+   * a URI), the heading path, the URI when it is not the title, the lines, the trust.
+   */
+  evidenceLabel?: (evidence: KnowledgeChunk) => string;
   labels?: Partial<FactsLabels>;
   className?: string;
 }
 
 const STATUS_COLOR: Record<FactStatus, ButtonColor> = { accepted: "emerald", proposed: "amber", belief: "zinc" };
+
+const MEDIUM_SHORT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+// ISO 8601 only. `Date.parse` alone is lenient in V8 ("sometime in 2026" parses as
+// 1 January), and a guessed date is worse than the value as it came.
+const ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/** The default fact date: medium date, short time, in the user's locale; anything not ISO 8601 as it came. */
+export function defaultFormatDate(iso: string): string {
+  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
+}
+
+/** The default evidence line: title (as-is), heading path, URI (unless it is the title), lines, trust. */
+export function defaultEvidenceLabel(c: KnowledgeChunk): string {
+  const p = c.provenance;
+  const title = c.sourceTitle ?? "";
+  return [title, p.headingPath.join(" / "), p.uri === title ? "" : p.uri, p.lineStart !== null ? `lines ${p.lineStart}-${p.lineEnd ?? p.lineStart}` : "", p.trust]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 function errorText(r: Read<unknown>, labels: FactsLabels): string {
   if (r.ok) return "";
@@ -108,7 +141,7 @@ function ErrorLine({ text, area }: { text: string; area: string }) {
  * and is refused unless it carries g282.1. All text renders as plain text.
  */
 export function FactsExplorer(props: FactsExplorerProps): ReactNode {
-  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className, pageSize = 50 } = props;
+  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className, pageSize = 50, formatDate = defaultFormatDate, evidenceLabel = defaultEvidenceLabel } = props;
   const labels = { ...DEFAULT_FACTS_LABELS, ...props.labels };
 
   const [ownSubject, setOwnSubject] = useState(props.subject ?? "");
@@ -295,7 +328,7 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
                       <span data-fancy-chat-fact-status-badge="">{labels.status[f.status]}</span>
                     </Badge>
                   </Table.Cell>
-                  <Table.Cell>{f.validFrom}</Table.Cell>
+                  <Table.Cell>{formatDate(f.validFrom)}</Table.Cell>
                   <Table.Cell>
                     <div className="flex gap-1">
                       <Button size="xs" variant="ghost" data-fancy-chat-fact-open={f.id} onClick={() => setOpen(f.id)}>
@@ -356,9 +389,7 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
                         <div key={c.chunkId} data-fancy-chat-fact-evidence={c.chunkId} className="flex flex-col gap-1">
                           <Text className="whitespace-pre-wrap break-words">{c.text}</Text>
                           <Text className="text-xs opacity-70">
-                            {[c.provenance.headingPath.join(" / "), c.provenance.uri, c.provenance.lineStart !== null ? `lines ${c.provenance.lineStart}-${c.provenance.lineEnd ?? c.provenance.lineStart}` : "", c.provenance.trust]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            <span data-fancy-chat-fact-evidence-label={c.chunkId}>{evidenceLabel(c)}</span>
                           </Text>
                         </div>
                       ))
@@ -379,7 +410,7 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
                             <div data-fancy-chat-fact-version={v.id} data-fancy-chat-fact-version-current={current ? "true" : "false"} className="flex flex-col">
                               <Text className="whitespace-pre-wrap break-words">{v.object}</Text>
                               <Text className="text-xs opacity-70">
-                                {[labels.validRange(v.validFrom, v.validTo ?? null), labels.status[v.status], v.supersededBy ? labels.superseded : current ? labels.current : ""].filter(Boolean).join(" · ")}
+                                {[labels.validRange(formatDate(v.validFrom), v.validTo ? formatDate(v.validTo) : null), labels.status[v.status], v.supersededBy ? labels.superseded : current ? labels.current : ""].filter(Boolean).join(" · ")}
                               </Text>
                             </div>
                           </Timeline.Item>

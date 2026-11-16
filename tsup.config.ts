@@ -15,7 +15,7 @@ export default defineConfig({
   // component registry; a bundled fancy-chat-js a second copy of the contract
   // whose machines could disagree with the server's; a bundled fancy-echarts
   // a second ECharts.
-  external: ["react", "react-dom", "@particle-academy/react-fancy", "@particle-academy/fancy-chat-js", "@particle-academy/fancy-echarts"],
+  external: ["react", "react-dom", "@particle-academy/react-fancy", "@particle-academy/fancy-chat-js", "@particle-academy/fancy-echarts", "@particle-academy/prism-graph"],
   treeshake: true,
   clean: true,
   sourcemap: true,

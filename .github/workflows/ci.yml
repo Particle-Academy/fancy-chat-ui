@@ -104,8 +104,7 @@ jobs:
         with:
           node-version: "22"
 
-      # Until fancy-chat-js and react-fancy 6.27.0 are on npm, those two dev
-      # dependencies are pinned git commits; npm builds each in its `prepare`.
+      # Until fancy-chat-js is on npm, it is a pinned git commit (dist committed).
       - name: Install
         run: npm install --no-audit --no-fund
 
@@ -122,12 +121,6 @@ jobs:
       # devDependencies, nothing nested). It must be the build of this commit.
       - name: Committed dist is current
         run: git diff --exit-code --stat -- dist
-
-      # Owner ruling 2026-11-15: the whole Prism ecosystem is an optional addon.
-      # The test suite checks the manifest and the source; this re-runs the check
-      # with the build's import graph (dist/metafile-*.json) present.
-      - name: No Prism in the built package
-        run: node node_modules/@particle-academy/fancy-chat-js/scripts/check-no-prism.mjs . --built
 
       # Written alongside the implementation, so every case passed on its first
       # run. This breaks one clause at a time and fails if the suite does not

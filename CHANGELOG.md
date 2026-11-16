@@ -8,6 +8,48 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-16
+
+Never published; 0.2.0 because the knowledge types and the react-fancy peer change.
+
+### Added
+
+- **`AgentComposer` `attachments?: boolean`**, passed through to react-fancy
+  PromptInput (6.28.0). On by default: what is attached reaches `onSend` with its
+  File, for the host to upload and send as `image` / `file` parts. `false` removes
+  every way to attach. The README shows the upload-then-send binding.
+- **CC-fancy-0044, in the facts views:**
+  - `formatDate?: (iso) => string` on `FactsExplorer`, used for every fact date,
+    `validRange` included. Default `defaultFormatDate`: `Intl.DateTimeFormat` with
+    `dateStyle: "medium"` and `timeStyle: "short"`; an unparseable value shows as it came.
+  - `evidenceLabel?: (evidence) => string`. Default `defaultEvidenceLabel`: today's
+    line, led by the chunk's `sourceTitle` as-is (it can be a URI). Each label has a
+    `data-fancy-chat-fact-evidence-label` handle.
+  - An optional `sourceTitle` on `KnowledgeChunk`, validated as a string when present.
+    fancy-chat-php 0.2.0's `KnowledgeBridge` fills it from prism-graph's `getSource`.
+
+### Changed
+
+- **Built on Prism, not provider-neutral** (owner, 2026-11-16): the CC-fancy-0042
+  ruling meant the extras (graph, memory, the browser) are optional, not Prism
+  itself. The docs say so; the code that renders the thread log is unchanged.
+- **BREAKING (types only): the knowledge shapes are prism-graph's.** `KnowledgeSource`
+  is `ListedSource`, `KnowledgeListing<T>` is `ListingPage<T>`, `KnowledgeChunk` is
+  `ListedChunk` plus `sourceTitle?` and `retired?`, `KnowledgeFact` is `Fact` with a
+  status, `FactStatus` is prism-graph's, from `@particle-academy/prism-graph` (a new
+  OPTIONAL peer, `>=0.3.0 <2.0`, imported for types only). They are readonly, and
+  provenance line and byte numbers are non-null. What to do: if you type-check code
+  against `./knowledge`, add `@particle-academy/prism-graph` as a dev dependency.
+  Nothing changes at runtime, and the validators still accept what they accepted.
+- **BREAKING: peer `@particle-academy/react-fancy >=6.28.0 <7.0`** (was `>=6.27.0`),
+  for PromptInput `attachments`. Update react-fancy.
+
+### Removed
+
+- **The no-Prism packaging check** (`npm run check:no-prism`, its CI step and test).
+  The root entry's isolation test stays: `.` never reaches `./knowledge`, `./charts`
+  or fancy-echarts, and no built file imports prism-graph at runtime.
+
 ## [0.1.0] - 2026-11-16
 
 ### Fixed

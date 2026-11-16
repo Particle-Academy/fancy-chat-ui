@@ -23,7 +23,7 @@ function isProvenance(v) {
   return isObj(v) && str(v.uri) && str(v.sha256) && intOrNull(v.byteStart) && intOrNull(v.byteEnd) && intOrNull(v.lineStart) && intOrNull(v.lineEnd) && Array.isArray(v.headingPath) && v.headingPath.every(str) && strOrNull(v.recipe) && str(v.trust) && strOrNull(v.writer) && str(v.recordedAt);
 }
 function isChunk(v) {
-  return isObj(v) && str(v.chunkId) && str(v.sourceId) && str(v.text) && int(v.position) && isProvenance(v.provenance);
+  return isObj(v) && str(v.chunkId) && str(v.sourceId) && str(v.text) && int(v.position) && isProvenance(v.provenance) && (v.sourceTitle === void 0 || str(v.sourceTitle)) && (v.retired === void 0 || typeof v.retired === "boolean");
 }
 var STATES = /* @__PURE__ */ new Set(["queued", "running", "done", "failed"]);
 function readListing(input, isItem, what, expected = G282_VERSION) {
@@ -103,6 +103,17 @@ var DEFAULT_FACTS_LABELS = {
   loadFailed: "The knowledge service could not be reached."
 };
 var STATUS_COLOR = { accepted: "emerald", proposed: "amber", belief: "zinc" };
+var MEDIUM_SHORT = new Intl.DateTimeFormat(void 0, { dateStyle: "medium", timeStyle: "short" });
+var ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+function defaultFormatDate(iso) {
+  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
+}
+function defaultEvidenceLabel(c) {
+  const p = c.provenance;
+  const title = c.sourceTitle ?? "";
+  return [title, p.headingPath.join(" / "), p.uri === title ? "" : p.uri, p.lineStart !== null ? `lines ${p.lineStart}-${p.lineEnd ?? p.lineStart}` : "", p.trust].filter(Boolean).join(" \xB7 ");
+}
 function errorText(r, labels) {
   if (r.ok) return "";
   return r.error === "knowledge.version" ? labels.versionRefused(r.version ?? null) : labels.shapeRefused;
@@ -112,7 +123,7 @@ function ErrorLine({ text, area }) {
   return /* @__PURE__ */ jsx("div", { "data-fancy-chat-knowledge-error": area, children: /* @__PURE__ */ jsx(Callout, { color: "red", children: text }) });
 }
 function FactsExplorer(props) {
-  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className, pageSize = 50 } = props;
+  const { adapter, includeUnaccepted = true, onAccept, onReject, graph: Graph, className, pageSize = 50, formatDate = defaultFormatDate, evidenceLabel = defaultEvidenceLabel } = props;
   const labels = { ...DEFAULT_FACTS_LABELS, ...props.labels };
   const [ownSubject, setOwnSubject] = useState(props.subject ?? "");
   const subject = props.subject !== void 0 && props.onSubjectChange ? props.subject : ownSubject;
@@ -267,7 +278,7 @@ function FactsExplorer(props) {
         /* @__PURE__ */ jsx(Table.Cell, { children: f.predicate }),
         /* @__PURE__ */ jsx(Table.Cell, { children: f.object }),
         /* @__PURE__ */ jsx(Table.Cell, { children: /* @__PURE__ */ jsx(Badge, { color: STATUS_COLOR[f.status], variant: "soft", size: "sm", children: /* @__PURE__ */ jsx("span", { "data-fancy-chat-fact-status-badge": "", children: labels.status[f.status] }) }) }),
-        /* @__PURE__ */ jsx(Table.Cell, { children: f.validFrom }),
+        /* @__PURE__ */ jsx(Table.Cell, { children: formatDate(f.validFrom) }),
         /* @__PURE__ */ jsx(Table.Cell, { children: /* @__PURE__ */ jsxs("div", { className: "flex gap-1", children: [
           /* @__PURE__ */ jsx(Button, { size: "xs", variant: "ghost", "data-fancy-chat-fact-open": f.id, onClick: () => setOpen(f.id), children: labels.open }),
           canDecide && f.status === "proposed" ? /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -295,7 +306,7 @@ function FactsExplorer(props) {
           !evidenceError && evidence.length === 0 ? /* @__PURE__ */ jsx(Text, { className: "text-sm opacity-70", children: labels.noEvidence }) : null,
           !evidenceError ? evidence.map((c) => /* @__PURE__ */ jsxs("div", { "data-fancy-chat-fact-evidence": c.chunkId, className: "flex flex-col gap-1", children: [
             /* @__PURE__ */ jsx(Text, { className: "whitespace-pre-wrap break-words", children: c.text }),
-            /* @__PURE__ */ jsx(Text, { className: "text-xs opacity-70", children: [c.provenance.headingPath.join(" / "), c.provenance.uri, c.provenance.lineStart !== null ? `lines ${c.provenance.lineStart}-${c.provenance.lineEnd ?? c.provenance.lineStart}` : "", c.provenance.trust].filter(Boolean).join(" \xB7 ") })
+            /* @__PURE__ */ jsx(Text, { className: "text-xs opacity-70", children: /* @__PURE__ */ jsx("span", { "data-fancy-chat-fact-evidence-label": c.chunkId, children: evidenceLabel(c) }) })
           ] }, c.chunkId)) : null
         ] }) : null,
         adapter.factTimeline ? /* @__PURE__ */ jsxs("div", { className: "flex flex-col gap-2", children: [
@@ -307,7 +318,7 @@ function FactsExplorer(props) {
               const current = v.id === open.id;
               return /* @__PURE__ */ jsx(Timeline.Item, { color: current ? "emerald" : "zinc", active: current, children: /* @__PURE__ */ jsxs("div", { "data-fancy-chat-fact-version": v.id, "data-fancy-chat-fact-version-current": current ? "true" : "false", className: "flex flex-col", children: [
                 /* @__PURE__ */ jsx(Text, { className: "whitespace-pre-wrap break-words", children: v.object }),
-                /* @__PURE__ */ jsx(Text, { className: "text-xs opacity-70", children: [labels.validRange(v.validFrom, v.validTo ?? null), labels.status[v.status], v.supersededBy ? labels.superseded : current ? labels.current : ""].filter(Boolean).join(" \xB7 ") })
+                /* @__PURE__ */ jsx(Text, { className: "text-xs opacity-70", children: [labels.validRange(formatDate(v.validFrom), v.validTo ? formatDate(v.validTo) : null), labels.status[v.status], v.supersededBy ? labels.superseded : current ? labels.current : ""].filter(Boolean).join(" \xB7 ") })
               ] }) }, v.id);
             }) })
           ) : null
@@ -541,6 +552,6 @@ function KnowledgeExplorer(props) {
   ] });
 }
 
-export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactsExplorer, G282_2_VERSION, G282_VERSION, KnowledgeExplorer, deriveIngestDisplay, readChunkListing, readFactListing, readFactListingV2, readIngestJob, readIngestJobListing, readSourceListing, readWorkerStatus };
+export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactsExplorer, G282_2_VERSION, G282_VERSION, KnowledgeExplorer, defaultEvidenceLabel, defaultFormatDate, deriveIngestDisplay, readChunkListing, readFactListing, readFactListingV2, readIngestJob, readIngestJobListing, readSourceListing, readWorkerStatus };
 //# sourceMappingURL=knowledge.js.map
 //# sourceMappingURL=knowledge.js.map

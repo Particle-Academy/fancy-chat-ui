@@ -8,6 +8,13 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Changed
+
+- The react-fancy devDependency (the version the suite and the lab build against)
+  moves from the `cc0042-triggers` commit `fec48c0` to `85b2ec4`, the same triggers
+  work rebased onto react-fancy 6.26.1 and versioned 6.27.0. The peer range is
+  unchanged (`>=6.27.0 <7`), so nothing to do.
+
 ### Added (impactium follow-ups)
 
 - **The full fact listing on open.** An optional adapter method

@@ -109,3 +109,12 @@ describe("the backend's cancel capability reaches the composer", () => {
     expect(result.current.capabilities).toBeNull();
   });
 });
+
+describe("capabilities: only a well-formed answer counts", () => {
+  it("a malformed answer leaves them null", async () => {
+    const t = transport({ capabilities: async () => ({ cancel: "no" }) as never });
+    const { result } = renderHook(() => useAgentThread({ transport: t }));
+    await act(flush);
+    expect(result.current.capabilities).toBeNull();
+  });
+});

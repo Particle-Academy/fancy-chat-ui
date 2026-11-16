@@ -130,6 +130,22 @@ describe('createHttpTransport mode: "interval"', () => {
     store.stop();
   });
 
+  it("a turn parked on a human is not running: polling stops until the human acts", async () => {
+    const fetch = server((n) =>
+      n === 0
+        ? [ev(1, "turn.started", { turnId: "u_1" }), ev(2, "turn.transition", { turnId: "u_1", action: "start" }), ev(3, "turn.transition", { turnId: "u_1", action: "park" })]
+        : [],
+    );
+    const t = createHttpTransport({ baseUrl: "/c", threadId: "t_1", fetch: fetch as never, mode: "interval", interval: { activeMs: 1000, emptyBackoff: 1, graceMs: 0 } });
+    const store = createThreadStore({ transport: t });
+    store.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.getSnapshot().state.turns[0]?.state).toBe("awaiting-human");
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(polls(fetch)).toHaveLength(1);
+    store.stop();
+  });
+
   it("pauses while the tab is hidden and catches up at once when it is shown", async () => {
     const fetch = server((n) => (n === 0 ? [ev(1, "turn.started", { turnId: "u_1" })] : []));
     const t = createHttpTransport({ baseUrl: "/c", threadId: "t_1", fetch: fetch as never, mode: "interval", interval: { activeMs: 1000, emptyBackoff: 1, graceMs: 0 } });

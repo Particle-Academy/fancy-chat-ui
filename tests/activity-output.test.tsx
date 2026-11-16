@@ -75,6 +75,19 @@ describe("ToolRow output (inline, bounded, never HTML)", () => {
     expect(resolveOutput).toHaveBeenCalledTimes(1);
   });
 
+  it("collapsing and expanding again does not fetch again", async () => {
+    const resolveOutput = vi.fn(async () => "the whole result");
+    const entry = tool({ output: "the who", truncated: true, outputRef: "o_9" });
+    const { rerender } = render(<ToolRow entry={entry} expanded resolveOutput={resolveOutput} />);
+    await act(flush);
+    rerender(<ToolRow entry={entry} expanded={false} resolveOutput={resolveOutput} />);
+    await act(flush);
+    rerender(<ToolRow entry={entry} expanded resolveOutput={resolveOutput} />);
+    await act(flush);
+    expect(resolveOutput).toHaveBeenCalledTimes(1);
+    expect(el("[data-fancy-chat-tool-output]")?.textContent).toContain("the whole result");
+  });
+
   it("shows a load error instead of failing the row", async () => {
     const resolveOutput = vi.fn(async () => {
       throw new Error("gone");

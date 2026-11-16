@@ -278,3 +278,27 @@ describe("factGraphOption (an ECharts graph series, no ECharts import)", () => {
     expect(s.categories.map((c) => c.name)).toEqual(["S", "F", "E"]);
   });
 });
+
+describe("facts: the lock and the shape, closely", () => {
+  it("two clicks in one tick (before React re-renders) decide once", async () => {
+    let release!: () => void;
+    const onAccept = vi.fn(() => new Promise<void>((r) => (release = r)));
+    await mount(<FactsExplorer adapter={adapter()} subject="acme" onAccept={onAccept} onReject={async () => {}} />);
+    const accept = el('[data-fancy-chat-fact-accept="f_2"]')!;
+    const reject = el('[data-fancy-chat-fact-reject="f_2"]')!;
+    act(() => {
+      accept.click();
+      reject.click();
+      accept.click();
+    });
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release();
+      await flush();
+    });
+  });
+
+  it("refuses evidence that is not a list of chunk ids", () => {
+    expect(readFactListing(listing([fact({ evidence: ["c_1", 7] as never })])).ok).toBe(false);
+  });
+});

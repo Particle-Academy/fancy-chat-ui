@@ -1,79 +1,65 @@
-# AGENTS.md — fancy-chat-ui
+# Using @particle-academy/fancy-chat-ui — guide for agents
 
-`CLAUDE.md` is a symlink to this file.
+How an agent installs and uses this package in a consumer app. What the package
+is, is in [README.md](./README.md). Notes for working ON this repo's code are in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
-**This file describes THIS REPO'S CODE and nothing else.** Process rules live in
-the envelope's `RULES.md` and must never be copied here.
+## Install
 
-## What this package is
+**Not yet published to npm.** Until then, install from git over HTTPS, pinned to a
+commit, together with its contract package:
 
-React agent-chat surfaces (CC-fancy-0042), composed from react-fancy, rendering the
-fancy-chat-js thread log a server projects Prism Harness runs into. `./knowledge`
-reads prism-graph's TYPES (`import type` only: a runtime import would pull its
-`node:sqlite` driver into a browser bundle; `tests/packaging.test.ts` fails on one).
+```bash
+npm install "git+https://github.com/Particle-Academy/react-fancy.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-js.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-ui.git#<sha>"
+npx fancy-chat-check-install
+```
 
-## Layout
+- **Peers:** `@particle-academy/fancy-chat-js >=0.1.0 <2.0`,
+  `@particle-academy/react-fancy >=6.28.0 <7.0`, `react ^19`, `react-dom ^19`.
+  Optional: `@particle-academy/fancy-echarts` (for `./charts`) and
+  `@particle-academy/prism-graph` (types for `./knowledge`).
+- **Node:** `>=22`.
+- The server side is `particle-academy/fancy-chat-php`, or any server that
+  implements the fancy-chat-js contract.
 
-| file | what lives there |
-|---|---|
-| `src/transport.ts` | HTTP transport: SSE, long-poll fallback, the POST routes. Sends no actor, ever. `wait` is milliseconds (what fancy-chat-php reads). |
-| `src/store.ts` | Seq log + the fancy-chat-js reducer; gap repair; the optional nudge; drops a cancelled turn's tail by turnId. |
-| `src/useAgentThread.ts` | The hook over the store, with `actionableId` and the actions. |
-| `src/AgentThread.tsx` | VirtualList + ChatMessage `body`; row renderers; HITL placement. |
-| `src/AgentComposer.tsx` | PromptInput with per-thread drafts (`draftKey`), Stop, outcome line. |
-| `src/PartView.tsx`, `src/activity.tsx`, `src/ApprovalCard.tsx`, `src/QuestionForm.tsx` | Parts, activity rows, HITL. |
-| `src/QueueBar.tsx`, `src/UndoCountdown.tsx` | The queue behind a running turn; the undo window (a display: the server decides lateness). |
-| `src/triggers.ts` | The trigger registry over PromptInput `triggers`, and the pill serialiser. |
-| `src/profile.ts` | Surface profiles: validated at definition; parts and HITL kinds per surface. |
-| `tests/e2e/` | `npm run test:e2e` against fancy-chat-php's `tests/e2e/serve.php`. Fails, never skips, without it. |
-| `src/actionable.ts` | The one place a projected state becomes "which item is actionable". |
-| `src/knowledge/` | OPTIONAL `./knowledge` entry: g282.1 validators (`shapes.ts`), `deriveIngestDisplay` (`ingest.ts`), `KnowledgeExplorer`. |
-| `src/charts/` | OPTIONAL `./charts` entry: `chartSpecToOption` (`spec.ts`) and `chartPartRenderer` on fancy-echarts. The only file that imports fancy-echarts. |
+## Find it on the Fancy MCP server
 
-## Invariants (each has a test, and a sabotage entry that proves it)
+The catalog server is `https://ui.particle.academy/mcp` (streamable HTTP, no API
+key; MCP id `fancy-ui`). This package is not yet listed there; it appears once
+published. Find it then with `search-components`.
 
-1. **Reuse, never reimplement** (owner, 2026-11-15). If a react-fancy primitive lacks
-   something, add it there (PromptInput `running`/`onStop`/`draftKey`, ContentRenderer
-   `holdBack`/`transform`, VirtualList `anchorOnPrepend`, ChatMessage `body` all came
-   from this package's needs). The contract lives in fancy-chat-js; never copy a
-   machine, a validator or the projection here.
-2. **No decision carries an actor or a decision.** `decide` sends `{ optionId, note? }`;
-   the server resolves both the actor and the decision.
-3. **Tone and decision come from the option kind.** An option of an unknown kind is not
-   offered.
-4. **One actionable HITL item; an in-flight decision locks.** The lock is a ref, so it
-   holds within one tick, before React re-renders.
-5. **Links only to http(s)**, in card actions and resolved files, with `rel="noopener"`.
-6. **Never drop a part.** An unknown kind renders `partToText` in a chip.
-7. **The projected `state` is mutated in place by the store.** Memoise on
-   `snapshot.version`, never on `state` identity.
-8. **The root entry never reaches `./knowledge`, `./charts` or fancy-echarts.**
-   `tests/packaging.test.ts` walks the built metafile from `dist/index.js`. `npm test`
-   builds first (`pretest`), and the sabotage sweep runs `npm test` for this reason.
-9. **Knowledge data carries `contractVersion: "g282.1"` or it is refused, never
-   guessed.** The ingest rule lives in `deriveIngestDisplay` alone:
-   - without `jobsAvailable`, only done or failed is shown;
-   - with it, queued and running show only on a fresh worker heartbeat;
-   - `unknown` is never rendered as running.
+## API essentials
 
-   No scope prop exists; the adapter binds the scope.
-10. **Raw ECharts options render only with `allowRawOptions: true`.** Validity comes
-    from fancy-chat-js `validatePart`, the same validator the servers run, and only
-    keys `chartSpecToOption` names reach ECharts.
+- `createHttpTransport({ baseUrl, threadId, mode? })`: SSE with long-poll fallback
+  (`auto`, the default), `poll`, or `interval` for a host that cannot hold a request
+  open (one PHP worker, a small FPM pool).
+- `useAgentThread({ transport })` returns `rows`, `state`, `capabilities`,
+  `activeTurn` and the actions (`send`, `decide`, `answer`, `cancel`, `retry`, ...).
+- `AgentThread` renders the thread; `AgentComposer` is the per-thread-draft composer
+  with Stop. The README's "Use" section shows the wiring.
+- Building blocks: `PartView`, `ThinkingBlock`, `ToolRow`, `PlanRow`,
+  `ActivityTimeline`, `ModelError`, `ApprovalCard`, `QuestionForm`, `QueueBar`,
+  `UndoCountdown`, `createTriggerRegistry`, `serializePill`, `defineSurfaceProfile`.
+- Optional entries: `@particle-academy/fancy-chat-ui/charts` (`chartPartRenderer`,
+  `FactGraph`) and `@particle-academy/fancy-chat-ui/knowledge` (`KnowledgeExplorer`,
+  `FactsExplorer`). The root entry never imports them.
+- Every component is controlled, carries `data-fancy-chat-*` handles, and takes
+  `labels`. To let a co-driving agent reach the surface, use
+  `registerAgentChatBridge` from `@particle-academy/agent-integrations`
+  (`./bridges/agent-chat`); it has no decide, answer or send tool.
 
-11. **One engine, many surfaces.** `store.start()`/`stop()` are reference-counted;
-    a surface unmounting never disconnects the others.
-12. **A pill label can never close or split its pill.** `serializePill` strips the
-    grammar's delimiters and control characters.
+## Traps
 
-## Dev dependencies
-
-`@particle-academy/react-fancy` comes from npm (`^6.28.0`). Until it is on npm,
-`@particle-academy/fancy-chat-js` is a pinned git commit over HTTPS
-(`git+https://github.com/Particle-Academy/<repo>.git#<40-char sha>`; never SSH, which a
-CI runner cannot clone); its `dist/` is committed, so it builds nothing and `npm ci`
-reproduces exactly. A git pin of a package that builds in `prepare` (react-fancy did)
-fails `npm install` on CI with "Cannot read properties of null (reading 'edgesOut')". A test refuses a `file:` path. Re-pin
-by editing the sha and running `npm install`. To try an unpushed sibling locally, use
-`npm install --no-save --install-links ../<repo>`, which leaves the manifest alone.
-This package also builds in `prepare`, so it installs from git itself.
+- **Decisions carry no actor.** `decide` sends `{ optionId, note? }`; the server
+  resolves the actor. Do not try to pass one.
+- **Attachments are uploaded by the host.** `onSend` receives `attachments` with
+  their `File`; upload to your own storage and send each as an `image` / `file` part
+  carrying your `ref`. The server never accepts bytes in a message, and a restored
+  draft's chips carry no `File`.
+- **Hide Stop when the backend cannot cancel:** `canStop={chat.capabilities?.cancel !== false}`.
+- **Raw ECharts options render only with `chartPartRenderer({ allowRawOptions: true })`.**
+- **npm writes `git+ssh://` into the lockfile** for a GitHub dependency even when
+  installed over HTTPS. If CI forbids SSH, rewrite the `resolved` entries to
+  `git+https://` (same sha).
+- With `ignore-scripts=true`, a git dependency that builds in `prepare` arrives
+  without `dist`; `npx fancy-chat-check-install` names it.

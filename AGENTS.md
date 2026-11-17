@@ -6,11 +6,8 @@ is, is in [README.md](./README.md). Notes for working ON this repo's code are in
 
 ## Install
 
-**Not yet published to npm.** Until then, install from git over HTTPS, pinned to a
-commit, together with its contract package:
-
 ```bash
-npm install "git+https://github.com/Particle-Academy/react-fancy.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-js.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-ui.git#<sha>"
+npm i @particle-academy/fancy-chat-js @particle-academy/fancy-chat-ui
 npx fancy-chat-check-install
 ```
 
@@ -25,8 +22,8 @@ npx fancy-chat-check-install
 ## Find it on the Fancy MCP server
 
 The catalog server is `https://ui.particle.academy/mcp` (streamable HTTP, no API
-key; MCP id `fancy-ui`). This package is not yet listed there; it appears once
-published. Find it then with `search-components`.
+key; MCP id `fancy-ui`). This package is listed there: find it with
+`search-components`.
 
 ## API essentials
 
@@ -58,8 +55,3 @@ published. Find it then with `search-components`.
   draft's chips carry no `File`.
 - **Hide Stop when the backend cannot cancel:** `canStop={chat.capabilities?.cancel !== false}`.
 - **Raw ECharts options render only with `chartPartRenderer({ allowRawOptions: true })`.**
-- **npm writes `git+ssh://` into the lockfile** for a GitHub dependency even when
-  installed over HTTPS. If CI forbids SSH, rewrite the `resolved` entries to
-  `git+https://` (same sha).
-- With `ignore-scripts=true`, a git dependency that builds in `prepare` arrives
-  without `dist`; `npx fancy-chat-check-install` names it.

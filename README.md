@@ -11,14 +11,14 @@ The knowledge explorer (`./knowledge`) reads prism-graph's own types
 (`@particle-academy/prism-graph`, an optional peer used for types only). prism-graph,
 prism-memory and the other extras are optional: the chat runs without them.
 
-**Not yet published.** Install from git (see Install). Design:
+Design:
 `.ai/plans/agent-chat-on-prism.md` in the Fancy envelope.
 
 <!-- fancy-agents-note:start -->
-> **For agents.** This package is not listed on the Fancy MCP catalog server
-> yet. The server, `https://ui.particle.academy/mcp` (streamable HTTP, no API key; MCP id
-> `fancy-ui`), lists the released Fancy packages with install commands and
-> docs. How an agent installs and uses this package is in [AGENTS.md](https://github.com/Particle-Academy/fancy-chat-ui/blob/main/AGENTS.md).
+> **For agents.** This package is listed on the Fancy MCP catalog server at
+> `https://ui.particle.academy/mcp` (streamable HTTP, no API key; MCP id `fancy-ui`),
+> with install commands and docs, alongside the rest of the kit. How an agent
+> installs and uses this package is in [AGENTS.md](https://github.com/Particle-Academy/fancy-chat-ui/blob/main/AGENTS.md).
 <!-- fancy-agents-note:end -->
 
 ## What it holds
@@ -49,24 +49,15 @@ which has **no** decide, answer or send tool.
 
 ## Install
 
-Until the first npm publish, install from git, over **HTTPS**, pinned to a commit:
-
 ```bash
-npm install "git+https://github.com/Particle-Academy/react-fancy.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-js.git#<sha>" "git+https://github.com/Particle-Academy/fancy-chat-ui.git#<sha>"
+npm i @particle-academy/fancy-chat-js @particle-academy/fancy-chat-ui
 ```
 
-- **fancy-chat-js and fancy-chat-ui commit their `dist/`** and have no `prepare`, so
-  a git install of either builds nothing and installs none of its devDependencies
-  (it is quick, and `ignore-scripts=true` makes no difference). CI fails a commit
-  whose `dist/` is stale. react-fancy's unreleased `cc0042-triggers` branch still
-  builds in `prepare`, once, at the host level; with `ignore-scripts=true` it arrives
-  without `dist`. Run `npx fancy-chat-check-install` after installing (and in CI): it
-  exits 1 and names every `@particle-academy` package whose entry files are missing.
-- **npm writes `git+ssh://git@github.com/...` into `package-lock.json`** for a GitHub
-  dependency even when you installed it over HTTPS. A machine with no GitHub SSH key
-  (a CI runner) still installs: npm falls back to HTTPS for a public GitHub repo. If
-  your CI forbids SSH outright, rewrite the lockfile's `resolved` entries to
-  `git+https://github.com/...` (same sha); `npm ci` accepts either.
+The Laravel server is `composer require particle-academy/fancy-chat-php`, or any server that
+implements the fancy-chat-js contract.
+
+- Run `npx fancy-chat-check-install` after installing (and in CI): it exits 1 and
+  names every `@particle-academy` package whose entry files are missing.
 - This package peers on `@particle-academy/react-fancy >=6.28.0 <7` (PromptInput
   `attachments`), and optionally on `@particle-academy/prism-graph >=0.3.0 <2.0` for
   the `./knowledge` types: add it as a dev dependency if you type-check against them.
@@ -275,9 +266,7 @@ On `AgentThread` these are `resolveToolOutput`, `renderToolOutput` and
 
 ## Develop
 
-Until the first publish, the dev dependencies are git commits over HTTPS (see
-Install). Re-pin by editing the sha and running `npm install`. To try an unpushed
-sibling, `npm install --no-save --install-links ../<repo>`.
+To try an unpushed sibling, `npm install --no-save --install-links ../<repo>`.
 
 ```bash
 npm install

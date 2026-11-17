@@ -71,12 +71,11 @@ reads prism-graph's TYPES (`import type` only: a runtime import would pull its
 
 ## Dev dependencies
 
-`@particle-academy/react-fancy` comes from npm (`^6.28.0`). Until it is on npm,
-`@particle-academy/fancy-chat-js` is a pinned git commit over HTTPS
+`@particle-academy/react-fancy` (`^6.28.0`) and `@particle-academy/fancy-chat-js`
+(`^0.2.0`) come from npm. If a git pin is ever needed again, it must be HTTPS
 (`git+https://github.com/Particle-Academy/<repo>.git#<40-char sha>`; never SSH, which a
-CI runner cannot clone); its `dist/` is committed, so it builds nothing and `npm ci`
-reproduces exactly. A git pin of a package that builds in `prepare` (react-fancy did)
-fails `npm install` on CI with "Cannot read properties of null (reading 'edgesOut')". A test refuses a `file:` path. Re-pin
-by editing the sha and running `npm install`. To try an unpushed sibling locally, use
-`npm install --no-save --install-links ../<repo>`, which leaves the manifest alone.
-This package also builds in `prepare`, so it installs from git itself.
+CI runner cannot clone), and a git pin of a package that builds in `prepare` fails
+`npm install` on CI with "Cannot read properties of null (reading 'edgesOut')".
+`tests/packaging.test.ts` enforces the pin shape and refuses a `file:` path. To try an
+unpushed sibling locally, use `npm install --no-save --install-links ../<repo>`, which
+leaves the manifest alone.

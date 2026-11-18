@@ -10,6 +10,10 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Changed
 
+- **CI: the lab-certificate gate verifies against the lab's rotated key list.**
+  The lab's first signing key is retired: certificates it already issued still
+  verify, and nothing new it signs ever can. Consumers do nothing.
+
 - **Docs:** the install sections in `AGENTS.md` and the README now use the registries (`npm i @particle-academy/fancy-chat-js @particle-academy/fancy-chat-ui`, `composer require particle-academy/fancy-chat-php`) instead of git installs, the git-install traps are gone, and the README's MCP note says the package is listed on the Fancy MCP catalog server. No code changed; nothing to do. npm shows the README and `AGENTS.md` as of the last publish, so the 0.2.0 page keeps the old text until the next release.
 - **Dev:** the `@particle-academy/fancy-chat-js` devDependency is `^0.2.0` from npm instead of a git commit. The peer range (`>=0.1.0 <2.0`) is unchanged; nothing to do.
 

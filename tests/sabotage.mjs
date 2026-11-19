@@ -157,7 +157,7 @@ const MUTATIONS = [
   ["valid-from unformatted", "src/knowledge/FactsExplorer.tsx", "<Table.Cell>{formatDate(f.validFrom)}</Table.Cell>", "<Table.Cell>{f.validFrom}</Table.Cell>"],
   ["validRange unformatted", "src/knowledge/FactsExplorer.tsx", "labels.validRange(formatDate(v.validFrom), v.validTo ? formatDate(v.validTo) : null)", "labels.validRange(v.validFrom, v.validTo ?? null)"],
   ["host formatter ignored", "src/knowledge/FactsExplorer.tsx", "formatDate = defaultFormatDate, evidenceLabel", "formatDate: _formatDate, evidenceLabel"],
-  ["a lenient date is guessed", "src/knowledge/FactsExplorer.tsx", "const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;", "const t = Date.parse(iso);"],
+  ["a lenient date is guessed", "src/knowledge/format.ts","const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;", "const t = Date.parse(iso);"],
   ["host evidence label ignored", "src/knowledge/FactsExplorer.tsx", "evidenceLabel = defaultEvidenceLabel } = props;", "evidenceLabel: _evidenceLabel } = props;\n  const evidenceLabel = defaultEvidenceLabel;"],
   ["source title not shown", "src/knowledge/FactsExplorer.tsx", "  return [title, p.headingPath.join(\" / \")", "  return [p.headingPath.join(\" / \")"],
   ["title URI repeated", "src/knowledge/FactsExplorer.tsx", "p.uri === title ? \"\" : p.uri", "p.uri"],

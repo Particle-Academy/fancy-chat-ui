@@ -35,9 +35,21 @@ function chartSpecToOption(spec, title) {
   return out;
 }
 
+// src/knowledge/format.ts
+var MEDIUM_SHORT = new Intl.DateTimeFormat(void 0, { dateStyle: "medium", timeStyle: "short" });
+var ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+function defaultFormatDate(iso) {
+  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
+}
+
 // src/knowledge/graph.ts
 var DEFAULT_FACT_GRAPH_CATEGORIES = { subject: "Subject", fact: "Fact", evidence: "Evidence" };
-function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chunks = []) {
+function defaultGraphEvidenceLabel(c) {
+  return c.sourceTitle ?? c.text.slice(0, 60);
+}
+function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chunks = [], options = {}) {
+  const { evidenceLabel = defaultGraphEvidenceLabel, formatDate = defaultFormatDate } = options;
   const nodes = [];
   const links = [];
   const seen = /* @__PURE__ */ new Set();
@@ -46,17 +58,26 @@ function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chun
     seen.add(n.id);
     nodes.push(n);
   };
-  const passage = new Map(chunks.map((c) => [c.chunkId, c.text]));
+  const loaded = new Map(chunks.map((c) => [c.chunkId, c]));
   for (const f of facts) {
     const subject = `subject:${f.subject}`;
     const node = `fact:${f.id}`;
     add({ id: subject, name: f.subject, category: 0, symbolSize: 28 });
-    add({ id: node, name: `${f.predicate}: ${f.object}`, category: 1, factId: f.id, status: f.status, symbolSize: 18 });
+    add({
+      id: node,
+      name: `${f.predicate}: ${f.object}`,
+      category: 1,
+      factId: f.id,
+      status: f.status,
+      validFrom: formatDate(f.validFrom),
+      ...f.validTo ? { validTo: formatDate(f.validTo) } : {},
+      symbolSize: 18
+    });
     links.push({ source: subject, target: node });
     for (const c of f.evidence) {
       const ev = `evidence:${c}`;
-      const text = passage.get(c);
-      add({ id: ev, name: text !== void 0 ? text.slice(0, 60) : c, category: 2, symbolSize: 10 });
+      const chunk = loaded.get(c);
+      add({ id: ev, name: chunk !== void 0 ? evidenceLabel(chunk) : c, category: 2, symbolSize: 10 });
       links.push({ source: node, target: ev });
     }
   }
@@ -91,8 +112,18 @@ function chartPartRenderer(options = {}) {
     return /* @__PURE__ */ jsxRuntime.jsx("div", { ...handle, "data-fancy-chat-chart-source": raw ? "raw" : "spec", children: /* @__PURE__ */ jsxRuntime.jsx(fancyEcharts.EChart, { option, style: { width: "100%", height }, ...theme !== void 0 ? { theme } : {}, ...renderer ? { renderer } : {} }) });
   };
 }
-function FactGraph({ facts, chunks, onSelectFact, categories, height = 360, theme, renderer }) {
-  const option = factGraphOption(facts, categories, chunks);
+var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+var escapeHtml = (s) => s.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+function factTooltip(p) {
+  const d = p?.data ?? {};
+  const name = escapeHtml(String(d.name ?? ""));
+  if (d.category !== 1 || typeof d.validFrom !== "string") return name;
+  const range = typeof d.validTo === "string" ? `${d.validFrom} to ${d.validTo}` : `from ${d.validFrom}`;
+  return `${name}<br/>${escapeHtml(range)}`;
+}
+function FactGraph({ facts, chunks, onSelectFact, categories, evidenceLabel, formatDate, height = 360, theme, renderer }) {
+  const base = factGraphOption(facts, categories, chunks, { ...evidenceLabel ? { evidenceLabel } : {}, ...formatDate ? { formatDate } : {} });
+  const option = { ...base, tooltip: { formatter: factTooltip } };
   const onEvents = {
     click: (p) => {
       if (p?.dataType === "node" && typeof p.data?.factId === "string") onSelectFact(p.data.factId);

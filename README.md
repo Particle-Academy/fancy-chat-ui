@@ -222,7 +222,15 @@ import { FactGraph } from "@particle-academy/fancy-chat-ui/charts";
 - **The map:** `FactGraph` (`./charts`, on fancy-echarts' graph series): subjects,
   facts and evidence as nodes, edges subject to fact and fact to evidence. Clicking a
   fact opens it. `factGraphOption` (in `./knowledge`, no ECharts import) builds the
-  option if you draw it yourself.
+  option if you draw it yourself; its fourth argument takes `{ evidenceLabel, formatDate }`.
+  - `formatDate?: (iso) => string`: a fact node's `validFrom` and `validTo`, shown in
+    its tooltip as plain text. Same default as the list (`defaultFormatDate`).
+  - `evidenceLabel?: (evidence) => string`: an evidence node's name, for a loaded
+    chunk. The default (`defaultGraphEvidenceLabel`) is the chunk's `sourceTitle` when
+    it has one, else the passage's first 60 characters; a chunk that is not loaded
+    shows its id.
+  - `FactsExplorer` passes its `formatDate`, and its `evidenceLabel` when you set one,
+    to the `graph` component.
 - **Accept and Reject are HUMAN-only.** They are callbacks to the host, never adapter
   methods, so nothing that holds the adapter (a co-driving agent included) can decide.
   They show on proposals only, and only when both are passed; a decision locks the

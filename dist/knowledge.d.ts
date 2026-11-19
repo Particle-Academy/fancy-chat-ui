@@ -1,5 +1,5 @@
-import { I as IngestJob, W as WorkerStatus, a as FactStatus, b as FactGraphCategories, K as KnowledgeFact, c as FactGraphComponent, d as KnowledgeChunk } from './graph-DxRlbggl.js';
-export { D as DEFAULT_FACT_GRAPH_CATEGORIES, e as FactGraphNode, F as FactGraphProps, G as G282_2_VERSION, f as G282_VERSION, g as IngestState, h as KnowledgeListing, i as KnowledgeProvenance, j as KnowledgeSource, R as Read, k as factGraphOption, r as readChunkListing, l as readFactListing, m as readFactListingV2, n as readIngestJob, o as readIngestJobListing, p as readSourceListing, q as readWorkerStatus } from './graph-DxRlbggl.js';
+import { I as IngestJob, W as WorkerStatus, a as FactStatus, b as FactGraphCategories, K as KnowledgeFact, c as FactGraphComponent, d as KnowledgeChunk } from './graph-DKlGQEuJ.js';
+export { D as DEFAULT_FACT_GRAPH_CATEGORIES, e as FactGraphNode, f as FactGraphOptions, F as FactGraphProps, G as G282_2_VERSION, g as G282_VERSION, h as IngestState, i as KnowledgeListing, j as KnowledgeProvenance, k as KnowledgeSource, R as Read, l as defaultGraphEvidenceLabel, m as factGraphOption, r as readChunkListing, n as readFactListing, o as readFactListingV2, p as readIngestJob, q as readIngestJobListing, s as readSourceListing, t as readWorkerStatus } from './graph-DKlGQEuJ.js';
 import { ReactNode } from 'react';
 import '@particle-academy/prism-graph';
 
@@ -27,6 +27,9 @@ declare function deriveIngestDisplay(job: IngestJob, worker: WorkerStatus | null
     display: IngestDisplay;
     alarm: boolean;
 };
+
+/** The default fact date: medium date, short time, in the user's locale; anything not ISO 8601 as it came. */
+declare function defaultFormatDate(iso: string): string;
 
 type Awaitable$1<T> = T | Promise<T>;
 interface FactsLabels {
@@ -97,8 +100,7 @@ interface FactsExplorerProps {
     labels?: Partial<FactsLabels>;
     className?: string;
 }
-/** The default fact date: medium date, short time, in the user's locale; anything not ISO 8601 as it came. */
-declare function defaultFormatDate(iso: string): string;
+
 /** The default evidence line: title (as-is), heading path, URI (unless it is the title), lines, trust. */
 declare function defaultEvidenceLabel(c: KnowledgeChunk): string;
 /**

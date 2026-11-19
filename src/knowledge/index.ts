@@ -24,9 +24,11 @@ export { DEFAULT_KNOWLEDGE_LABELS, KnowledgeExplorer, type KnowledgeAdapter, typ
 export { DEFAULT_FACTS_LABELS, defaultEvidenceLabel, defaultFormatDate, FactsExplorer, type FactsExplorerProps, type FactsLabels } from "./FactsExplorer";
 export {
   DEFAULT_FACT_GRAPH_CATEGORIES,
+  defaultGraphEvidenceLabel,
   factGraphOption,
   type FactGraphCategories,
   type FactGraphComponent,
   type FactGraphNode,
+  type FactGraphOptions,
   type FactGraphProps,
 } from "./graph";

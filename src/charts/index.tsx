@@ -5,7 +5,7 @@ import { partToText, validatePart, type Part } from "@particle-academy/fancy-cha
 
 import type { PartRenderer } from "../PartView";
 import { chartSpecToOption, type ChartSpec } from "./spec";
-import { factGraphOption, type FactGraphProps } from "../knowledge/graph";
+import { factGraphOption, type FactGraphNode, type FactGraphProps } from "../knowledge/graph";
 
 export { chartSpecToOption, type ChartSpec } from "./spec";
 
@@ -55,6 +55,18 @@ export function chartPartRenderer(options: ChartPartRendererOptions = {}): PartR
   };
 }
 
+const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]!);
+
+/** A node's tooltip: its name, and on a fact node its (formatted) valid range, all escaped. */
+function factTooltip(p: { data?: Partial<FactGraphNode> }): string {
+  const d = p?.data ?? {};
+  const name = escapeHtml(String(d.name ?? ""));
+  if (d.category !== 1 || typeof d.validFrom !== "string") return name;
+  const range = typeof d.validTo === "string" ? `${d.validFrom} to ${d.validTo}` : `from ${d.validFrom}`;
+  return `${name}<br/>${escapeHtml(range)}`;
+}
+
 export interface FactGraphChartProps extends FactGraphProps {
   /** Pixels. Default 360. */
   height?: number;
@@ -69,8 +81,11 @@ export interface FactGraphChartProps extends FactGraphProps {
  * its facts and from a fact to its evidence. Clicking a fact node selects it.
  * Pass it to `FactsExplorer`'s `graph` prop.
  */
-export function FactGraph({ facts, chunks, onSelectFact, categories, height = 360, theme, renderer }: FactGraphChartProps): ReactNode {
-  const option = factGraphOption(facts, categories, chunks);
+export function FactGraph({ facts, chunks, onSelectFact, categories, evidenceLabel, formatDate, height = 360, theme, renderer }: FactGraphChartProps): ReactNode {
+  const base = factGraphOption(facts, categories, chunks, { ...(evidenceLabel ? { evidenceLabel } : {}), ...(formatDate ? { formatDate } : {}) });
+  // ECharts renders a tooltip formatter's return as HTML: every piece is escaped,
+  // so fact text and dates stay plain text.
+  const option = { ...base, tooltip: { formatter: factTooltip } };
   const onEvents = {
     click: (p: { dataType?: string; data?: { factId?: unknown } }) => {
       if (p?.dataType === "node" && typeof p.data?.factId === "string") onSelectFact(p.data.factId);

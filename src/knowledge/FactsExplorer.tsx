@@ -3,6 +3,7 @@ import { Badge, Button, Callout, Drawer, Input, Table, Text, Timeline } from "@p
 import type { ButtonColor } from "@particle-academy/react-fancy";
 
 import type { KnowledgeAdapter } from "./KnowledgeExplorer";
+import { defaultFormatDate } from "./format";
 import { DEFAULT_FACT_GRAPH_CATEGORIES, type FactGraphCategories, type FactGraphComponent } from "./graph";
 import { G282_VERSION, readChunkListing, readFactListing, readFactListingV2, type FactStatus, type KnowledgeChunk, type KnowledgeFact, type Read } from "./shapes";
 
@@ -99,17 +100,7 @@ export interface FactsExplorerProps {
 
 const STATUS_COLOR: Record<FactStatus, ButtonColor> = { accepted: "emerald", proposed: "amber", belief: "zinc" };
 
-const MEDIUM_SHORT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-
-// ISO 8601 only. `Date.parse` alone is lenient in V8 ("sometime in 2026" parses as
-// 1 January), and a guessed date is worse than the value as it came.
-const ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
-
-/** The default fact date: medium date, short time, in the user's locale; anything not ISO 8601 as it came. */
-export function defaultFormatDate(iso: string): string {
-  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
-  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
-}
+export { defaultFormatDate };
 
 /** The default evidence line: title (as-is), heading path, URI (unless it is the title), lines, trust. */
 export function defaultEvidenceLabel(c: KnowledgeChunk): string {
@@ -364,7 +355,8 @@ export function FactsExplorer(props: FactsExplorerProps): ReactNode {
       {Graph && facts && facts.length && !factsError ? (
         <div data-fancy-chat-facts-graph="">
           <Text className="text-sm opacity-70">{labels.graph}</Text>
-          <Graph facts={facts} chunks={evidence} onSelectFact={(id) => setOpen(id)} categories={labels.categories} />
+          {/* The host's evidenceLabel only: the map's default name is not the drawer's line. */}
+          <Graph facts={facts} chunks={evidence} onSelectFact={(id) => setOpen(id)} categories={labels.categories} formatDate={formatDate} {...(props.evidenceLabel ? { evidenceLabel: props.evidenceLabel } : {})} />
         </div>
       ) : null}
 

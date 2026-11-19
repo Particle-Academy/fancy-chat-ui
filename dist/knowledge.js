@@ -1,5 +1,5 @@
-import { DEFAULT_FACT_GRAPH_CATEGORIES } from './chunk-ZLI6D2DT.js';
-export { DEFAULT_FACT_GRAPH_CATEGORIES, factGraphOption } from './chunk-ZLI6D2DT.js';
+import { DEFAULT_FACT_GRAPH_CATEGORIES, defaultFormatDate } from './chunk-D6U3RCQE.js';
+export { DEFAULT_FACT_GRAPH_CATEGORIES, defaultFormatDate, defaultGraphEvidenceLabel, factGraphOption } from './chunk-D6U3RCQE.js';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Text, Input, Button, Table, Badge, Drawer, Timeline, Callout } from '@particle-academy/react-fancy';
 import { jsxs, jsx, Fragment } from 'react/jsx-runtime';
@@ -103,12 +103,6 @@ var DEFAULT_FACTS_LABELS = {
   loadFailed: "The knowledge service could not be reached."
 };
 var STATUS_COLOR = { accepted: "emerald", proposed: "amber", belief: "zinc" };
-var MEDIUM_SHORT = new Intl.DateTimeFormat(void 0, { dateStyle: "medium", timeStyle: "short" });
-var ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
-function defaultFormatDate(iso) {
-  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
-  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
-}
 function defaultEvidenceLabel(c) {
   const p = c.provenance;
   const title = c.sourceTitle ?? "";
@@ -291,7 +285,7 @@ function FactsExplorer(props) {
     !factsError && factsCursor && adapter.listFacts ? /* @__PURE__ */ jsx(Button, { size: "sm", variant: "ghost", "data-fancy-chat-facts-more": "", onClick: loadMoreFacts, children: labels.loadMore }) : null,
     Graph && facts && facts.length && !factsError ? /* @__PURE__ */ jsxs("div", { "data-fancy-chat-facts-graph": "", children: [
       /* @__PURE__ */ jsx(Text, { className: "text-sm opacity-70", children: labels.graph }),
-      /* @__PURE__ */ jsx(Graph, { facts, chunks: evidence, onSelectFact: (id) => setOpen(id), categories: labels.categories })
+      /* @__PURE__ */ jsx(Graph, { facts, chunks: evidence, onSelectFact: (id) => setOpen(id), categories: labels.categories, formatDate, ...props.evidenceLabel ? { evidenceLabel: props.evidenceLabel } : {} })
     ] }) : null,
     /* @__PURE__ */ jsxs(Drawer, { open: open !== null, onClose: () => setOpen(null), side: "right", children: [
       /* @__PURE__ */ jsx(Drawer.Header, { children: open ? `${open.subject} \xB7 ${open.predicate}` : "" }),
@@ -552,6 +546,6 @@ function KnowledgeExplorer(props) {
   ] });
 }
 
-export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactsExplorer, G282_2_VERSION, G282_VERSION, KnowledgeExplorer, defaultEvidenceLabel, defaultFormatDate, deriveIngestDisplay, readChunkListing, readFactListing, readFactListingV2, readIngestJob, readIngestJobListing, readSourceListing, readWorkerStatus };
+export { DEFAULT_FACTS_LABELS, DEFAULT_KNOWLEDGE_LABELS, FactsExplorer, G282_2_VERSION, G282_VERSION, KnowledgeExplorer, defaultEvidenceLabel, deriveIngestDisplay, readChunkListing, readFactListing, readFactListingV2, readIngestJob, readIngestJobListing, readSourceListing, readWorkerStatus };
 //# sourceMappingURL=knowledge.js.map
 //# sourceMappingURL=knowledge.js.map

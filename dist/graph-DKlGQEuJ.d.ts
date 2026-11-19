@@ -111,9 +111,25 @@ interface FactGraphNode {
     factId?: string;
     /** Set on fact nodes. */
     status?: KnowledgeFact["status"];
+    /** Set on fact nodes: `validFrom`, through `formatDate`. */
+    validFrom?: string;
+    /** Set on fact nodes that have one: `validTo`, through `formatDate`. */
+    validTo?: string;
     symbolSize: number;
 }
-declare function factGraphOption(facts: readonly KnowledgeFact[], categories?: FactGraphCategories, chunks?: readonly KnowledgeChunk[]): Record<string, unknown>;
+interface FactGraphOptions {
+    /**
+     * An evidence node's name, for a chunk that is loaded. Default: the chunk's
+     * `sourceTitle` when it has one, else the passage's first 60 characters. A chunk
+     * that is not loaded is named by its id either way.
+     */
+    evidenceLabel?: (evidence: KnowledgeChunk) => string;
+    /** How a fact's dates are shown. Default: `defaultFormatDate` (medium date, short time, user's locale; unparseable as it came). */
+    formatDate?: (iso: string) => string;
+}
+/** The default evidence node name: the source title, else the passage's first 60 characters. */
+declare function defaultGraphEvidenceLabel(c: KnowledgeChunk): string;
+declare function factGraphOption(facts: readonly KnowledgeFact[], categories?: FactGraphCategories, chunks?: readonly KnowledgeChunk[], options?: FactGraphOptions): Record<string, unknown>;
 interface FactGraphProps {
     facts: readonly KnowledgeFact[];
     /** Evidence passages already loaded (the open fact's), to label evidence nodes. */
@@ -121,8 +137,12 @@ interface FactGraphProps {
     /** A fact node was clicked. */
     onSelectFact: (factId: string) => void;
     categories?: FactGraphCategories;
+    /** An evidence node's name; see `FactGraphOptions`. FactsExplorer passes its own `evidenceLabel` prop when set. */
+    evidenceLabel?: (evidence: KnowledgeChunk) => string;
+    /** How a fact's dates are shown; see `FactGraphOptions`. FactsExplorer passes its own `formatDate`. */
+    formatDate?: (iso: string) => string;
 }
 /** What `FactsExplorer`'s `graph` prop takes: `FactGraph` from `./charts`, or the host's own. */
 type FactGraphComponent = ComponentType<FactGraphProps>;
 
-export { DEFAULT_FACT_GRAPH_CATEGORIES as D, type FactGraphProps as F, G282_2_VERSION as G, type IngestJob as I, type KnowledgeFact as K, type Read as R, type WorkerStatus as W, type FactStatus as a, type FactGraphCategories as b, type FactGraphComponent as c, type KnowledgeChunk as d, type FactGraphNode as e, G282_VERSION as f, type IngestState as g, type KnowledgeListing as h, type KnowledgeProvenance as i, type KnowledgeSource as j, factGraphOption as k, readFactListing as l, readFactListingV2 as m, readIngestJob as n, readIngestJobListing as o, readSourceListing as p, readWorkerStatus as q, readChunkListing as r };
+export { DEFAULT_FACT_GRAPH_CATEGORIES as D, type FactGraphProps as F, G282_2_VERSION as G, type IngestJob as I, type KnowledgeFact as K, type Read as R, type WorkerStatus as W, type FactStatus as a, type FactGraphCategories as b, type FactGraphComponent as c, type KnowledgeChunk as d, type FactGraphNode as e, type FactGraphOptions as f, G282_VERSION as g, type IngestState as h, type KnowledgeListing as i, type KnowledgeProvenance as j, type KnowledgeSource as k, defaultGraphEvidenceLabel as l, factGraphOption as m, readFactListing as n, readFactListingV2 as o, readIngestJob as p, readIngestJobListing as q, readChunkListing as r, readSourceListing as s, readWorkerStatus as t };

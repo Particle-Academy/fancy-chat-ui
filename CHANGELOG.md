@@ -8,6 +8,25 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Added
+
+- **CC-fancy-0044 on the map: `FactGraph` takes `evidenceLabel` and `formatDate`.**
+  Additive; consumers do nothing.
+  - `formatDate?: (iso) => string`: each fact node carries `validFrom` (and `validTo`
+    when it has one) through it, and `FactGraph`'s tooltip shows the range as plain
+    text (escaped). Default `defaultFormatDate`, the same as `FactsExplorer`'s: the
+    user's locale via `Intl.DateTimeFormat`; an unparseable value shows as it came.
+  - `evidenceLabel?: (evidence) => string`: an evidence node's name, for a loaded
+    chunk. Default `defaultGraphEvidenceLabel` (new export): the chunk's `sourceTitle`
+    when it has one, else today's name, the passage's first 60 characters. A chunk
+    that is not loaded still shows its id.
+  - `factGraphOption(facts, categories, chunks, options?)` takes the same two in a new
+    optional fourth argument (`FactGraphOptions`, exported).
+  - `FactsExplorer` hands its `formatDate`, and its `evidenceLabel` when one is passed,
+    to its `graph` component. Its own date and evidence-line output is unchanged.
+  - The one visible change with no props set: a fact node's tooltip now shows its
+    valid range under its name.
+
 ### Changed
 
 - **CI: the lab-certificate gate verifies against the lab's rotated key list.**

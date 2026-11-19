@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { P as PartRenderer } from './PartView-BUiua884.cjs';
-import { F as FactGraphProps } from './graph-DxRlbggl.cjs';
+import { F as FactGraphProps } from './graph-DKlGQEuJ.cjs';
 import '@particle-academy/react-fancy';
 import '@particle-academy/fancy-chat-js';
 import '@particle-academy/prism-graph';
@@ -58,6 +58,6 @@ interface FactGraphChartProps extends FactGraphProps {
  * its facts and from a fact to its evidence. Clicking a fact node selects it.
  * Pass it to `FactsExplorer`'s `graph` prop.
  */
-declare function FactGraph({ facts, chunks, onSelectFact, categories, height, theme, renderer }: FactGraphChartProps): ReactNode;
+declare function FactGraph({ facts, chunks, onSelectFact, categories, evidenceLabel, formatDate, height, theme, renderer }: FactGraphChartProps): ReactNode;
 
 export { type ChartPartRendererOptions, type ChartSpec, FactGraph, type FactGraphChartProps, chartPartRenderer, chartSpecToOption };

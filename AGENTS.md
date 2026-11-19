@@ -40,6 +40,17 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
 - Optional entries: `@particle-academy/fancy-chat-ui/charts` (`chartPartRenderer`,
   `FactGraph`) and `@particle-academy/fancy-chat-ui/knowledge` (`KnowledgeExplorer`,
   `FactsExplorer`). The root entry never imports them.
+- Display props on the facts views (all optional; omit them for the defaults):
+
+  | prop | on | default |
+  |---|---|---|
+  | `formatDate?: (iso: string) => string` | `FactsExplorer`, `FactGraph` | `defaultFormatDate`: `Intl.DateTimeFormat` medium date + short time in the user's locale; an unparseable value shows as it came |
+  | `evidenceLabel?: (evidence: KnowledgeChunk) => string` | `FactsExplorer` (the line under a passage) | `defaultEvidenceLabel`: `sourceTitle`, heading path, URI, lines, trust |
+  | `evidenceLabel?: (evidence: KnowledgeChunk) => string` | `FactGraph` (an evidence node's name) | `defaultGraphEvidenceLabel`: `sourceTitle`, else the passage's first 60 characters; a chunk not loaded shows its id |
+
+  `FactsExplorer` hands its `formatDate`, and its `evidenceLabel` when you pass one,
+  to the `graph` component. `sourceTitle` on a chunk is optional; your adapter fills
+  it (fancy-chat-php's `KnowledgeBridge` does).
 - Every component is controlled, carries `data-fancy-chat-*` handles, and takes
   `labels`. To let a co-driving agent reach the surface, use
   `registerAgentChatBridge` from `@particle-academy/agent-integrations`

@@ -1,4 +1,4 @@
-import { factGraphOption } from './chunk-ZLI6D2DT.js';
+import { factGraphOption } from './chunk-D6U3RCQE.js';
 import { EChart } from '@particle-academy/fancy-echarts';
 import { Text } from '@particle-academy/react-fancy';
 import { validatePart, partToText } from '@particle-academy/fancy-chat-js';
@@ -44,8 +44,18 @@ function chartPartRenderer(options = {}) {
     return /* @__PURE__ */ jsx("div", { ...handle, "data-fancy-chat-chart-source": raw ? "raw" : "spec", children: /* @__PURE__ */ jsx(EChart, { option, style: { width: "100%", height }, ...theme !== void 0 ? { theme } : {}, ...renderer ? { renderer } : {} }) });
   };
 }
-function FactGraph({ facts, chunks, onSelectFact, categories, height = 360, theme, renderer }) {
-  const option = factGraphOption(facts, categories, chunks);
+var HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+var escapeHtml = (s) => s.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+function factTooltip(p) {
+  const d = p?.data ?? {};
+  const name = escapeHtml(String(d.name ?? ""));
+  if (d.category !== 1 || typeof d.validFrom !== "string") return name;
+  const range = typeof d.validTo === "string" ? `${d.validFrom} to ${d.validTo}` : `from ${d.validFrom}`;
+  return `${name}<br/>${escapeHtml(range)}`;
+}
+function FactGraph({ facts, chunks, onSelectFact, categories, evidenceLabel, formatDate, height = 360, theme, renderer }) {
+  const base = factGraphOption(facts, categories, chunks, { ...evidenceLabel ? { evidenceLabel } : {}, ...formatDate ? { formatDate } : {} });
+  const option = { ...base, tooltip: { formatter: factTooltip } };
   const onEvents = {
     click: (p) => {
       if (p?.dataType === "node" && typeof p.data?.factId === "string") onSelectFact(p.data.factId);

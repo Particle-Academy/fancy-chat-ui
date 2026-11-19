@@ -79,9 +79,21 @@ function deriveIngestDisplay(job, worker, now, options = {}) {
   return { display: "unknown", alarm: true };
 }
 
+// src/knowledge/format.ts
+var MEDIUM_SHORT = new Intl.DateTimeFormat(void 0, { dateStyle: "medium", timeStyle: "short" });
+var ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+function defaultFormatDate(iso) {
+  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
+}
+
 // src/knowledge/graph.ts
 var DEFAULT_FACT_GRAPH_CATEGORIES = { subject: "Subject", fact: "Fact", evidence: "Evidence" };
-function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chunks = []) {
+function defaultGraphEvidenceLabel(c) {
+  return c.sourceTitle ?? c.text.slice(0, 60);
+}
+function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chunks = [], options = {}) {
+  const { evidenceLabel = defaultGraphEvidenceLabel, formatDate = defaultFormatDate } = options;
   const nodes = [];
   const links = [];
   const seen = /* @__PURE__ */ new Set();
@@ -90,17 +102,26 @@ function factGraphOption(facts, categories = DEFAULT_FACT_GRAPH_CATEGORIES, chun
     seen.add(n.id);
     nodes.push(n);
   };
-  const passage = new Map(chunks.map((c) => [c.chunkId, c.text]));
+  const loaded = new Map(chunks.map((c) => [c.chunkId, c]));
   for (const f of facts) {
     const subject = `subject:${f.subject}`;
     const node = `fact:${f.id}`;
     add({ id: subject, name: f.subject, category: 0, symbolSize: 28 });
-    add({ id: node, name: `${f.predicate}: ${f.object}`, category: 1, factId: f.id, status: f.status, symbolSize: 18 });
+    add({
+      id: node,
+      name: `${f.predicate}: ${f.object}`,
+      category: 1,
+      factId: f.id,
+      status: f.status,
+      validFrom: formatDate(f.validFrom),
+      ...f.validTo ? { validTo: formatDate(f.validTo) } : {},
+      symbolSize: 18
+    });
     links.push({ source: subject, target: node });
     for (const c of f.evidence) {
       const ev = `evidence:${c}`;
-      const text = passage.get(c);
-      add({ id: ev, name: text !== void 0 ? text.slice(0, 60) : c, category: 2, symbolSize: 10 });
+      const chunk = loaded.get(c);
+      add({ id: ev, name: chunk !== void 0 ? evidenceLabel(chunk) : c, category: 2, symbolSize: 10 });
       links.push({ source: node, target: ev });
     }
   }
@@ -147,12 +168,6 @@ var DEFAULT_FACTS_LABELS = {
   loadFailed: "The knowledge service could not be reached."
 };
 var STATUS_COLOR = { accepted: "emerald", proposed: "amber", belief: "zinc" };
-var MEDIUM_SHORT = new Intl.DateTimeFormat(void 0, { dateStyle: "medium", timeStyle: "short" });
-var ISO_8601 = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
-function defaultFormatDate(iso) {
-  const t = ISO_8601.test(iso) ? Date.parse(iso) : Number.NaN;
-  return Number.isNaN(t) ? iso : MEDIUM_SHORT.format(new Date(t));
-}
 function defaultEvidenceLabel(c) {
   const p = c.provenance;
   const title = c.sourceTitle ?? "";
@@ -335,7 +350,7 @@ function FactsExplorer(props) {
     !factsError && factsCursor && adapter.listFacts ? /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Button, { size: "sm", variant: "ghost", "data-fancy-chat-facts-more": "", onClick: loadMoreFacts, children: labels.loadMore }) : null,
     Graph && facts && facts.length && !factsError ? /* @__PURE__ */ jsxRuntime.jsxs("div", { "data-fancy-chat-facts-graph": "", children: [
       /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Text, { className: "text-sm opacity-70", children: labels.graph }),
-      /* @__PURE__ */ jsxRuntime.jsx(Graph, { facts, chunks: evidence, onSelectFact: (id) => setOpen(id), categories: labels.categories })
+      /* @__PURE__ */ jsxRuntime.jsx(Graph, { facts, chunks: evidence, onSelectFact: (id) => setOpen(id), categories: labels.categories, formatDate, ...props.evidenceLabel ? { evidenceLabel: props.evidenceLabel } : {} })
     ] }) : null,
     /* @__PURE__ */ jsxRuntime.jsxs(reactFancy.Drawer, { open: open !== null, onClose: () => setOpen(null), side: "right", children: [
       /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Drawer.Header, { children: open ? `${open.subject} \xB7 ${open.predicate}` : "" }),
@@ -605,6 +620,7 @@ exports.G282_VERSION = G282_VERSION;
 exports.KnowledgeExplorer = KnowledgeExplorer;
 exports.defaultEvidenceLabel = defaultEvidenceLabel;
 exports.defaultFormatDate = defaultFormatDate;
+exports.defaultGraphEvidenceLabel = defaultGraphEvidenceLabel;
 exports.deriveIngestDisplay = deriveIngestDisplay;
 exports.factGraphOption = factGraphOption;
 exports.readChunkListing = readChunkListing;

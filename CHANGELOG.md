@@ -8,6 +8,12 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-18
+
+**What a consumer must do.** Nothing: every change is additive. The one visible
+difference with no props set is that a `FactGraph` fact node's tooltip now shows
+its valid range under its name.
+
 ### Added
 
 - **Tests and docs for `AgentComposer` `attachments` (CC-fancy-0043).** The prop

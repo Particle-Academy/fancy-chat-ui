@@ -29,4 +29,55 @@ describe("AgentComposer attachments", () => {
     expect(attach()).toBeNull();
     expect(document.querySelector('[data-fancy-chat-composer="t_1"] input[type="file"]')).toBeNull();
   });
+
+  it("with attachments={false} a dropped or pasted file never reaches the draft", async () => {
+    const onDraftsChange = vi.fn();
+    render(composer({ attachments: false, onDraftsChange }));
+    await act(flush);
+
+    const drop = dropFile(new File(["x"], "a.pdf", { type: "application/pdf" }));
+    const paste = pasteFile(new File(["x"], "shot.png", { type: "image/png" }));
+
+    expect(drop.defaultPrevented).toBe(false);
+    expect(paste.defaultPrevented).toBe(false);
+    for (const [drafts] of onDraftsChange.mock.calls) expect(drafts.t_1.attachments).toEqual([]);
+  });
+
+  it("with attachments on (explicit or default) a dropped file reaches the draft", async () => {
+    for (const over of [{ attachments: true }, {}]) {
+      const onDraftsChange = vi.fn();
+      const { unmount } = render(composer({ ...over, onDraftsChange }));
+      await act(flush);
+
+      const drop = dropFile(new File(["x"], "a.pdf", { type: "application/pdf" }));
+
+      expect(drop.defaultPrevented).toBe(true);
+      const last = onDraftsChange.mock.calls.at(-1)![0];
+      expect(last.t_1.attachments.map((a: { name: string }) => a.name)).toEqual(["a.pdf"]);
+      unmount();
+    }
+  });
 });
+
+/** jsdom has no DataTransfer, so hand React the shape its handler reads. */
+function dropFile(f: File): Event {
+  const target = document.querySelector('[data-fancy-chat-composer="t_1"] [data-react-fancy-prompt-input]')!;
+  const ev = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(ev, "dataTransfer", { value: { files: [f] } });
+  act(() => {
+    target.dispatchEvent(ev);
+  });
+  return ev;
+}
+
+function pasteFile(f: File): Event {
+  const ta = document.querySelector('[data-fancy-chat-composer="t_1"] textarea')!;
+  const ev = new Event("paste", { bubbles: true, cancelable: true });
+  Object.defineProperty(ev, "clipboardData", {
+    value: { files: [f], types: ["Files"], getData: () => "" },
+  });
+  act(() => {
+    ta.dispatchEvent(ev);
+  });
+  return ev;
+}

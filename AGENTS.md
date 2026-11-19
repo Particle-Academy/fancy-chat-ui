@@ -34,6 +34,11 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   `activeTurn` and the actions (`send`, `decide`, `answer`, `cancel`, `retry`, ...).
 - `AgentThread` renders the thread; `AgentComposer` is the per-thread-draft composer
   with Stop. The README's "Use" section shows the wiring.
+- `AgentComposer` attaching:
+
+  | prop | type | default | what it does |
+  |---|---|---|---|
+  | `attachments` | `boolean` | `true` | passed to react-fancy PromptInput (needs `>=6.28.0`). `false` is for a backend that takes no files: no Attach button, no file input, no drop target, no file paste (text paste still works), and `onSend` always gets `attachments: []` |
 - Building blocks: `PartView`, `ThinkingBlock`, `ToolRow`, `PlanRow`,
   `ActivityTimeline`, `ModelError`, `ApprovalCard`, `QuestionForm`, `QueueBar`,
   `UndoCountdown`, `createTriggerRegistry`, `serializePill`, `defineSurfaceProfile`.

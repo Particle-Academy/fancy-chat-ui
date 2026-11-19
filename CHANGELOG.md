@@ -10,6 +10,13 @@ version number is not a stability promise until 1.0; read the entry.
 
 ### Added
 
+- **Tests and docs for `AgentComposer` `attachments` (CC-fancy-0043).** The prop
+  shipped in 0.2.0 and depends on react-fancy 6.28.0's PromptInput `attachments` (the
+  peer is already `>=6.28.0 <7.0`). New tests show that with `attachments={false}` a
+  dropped or pasted file never reaches the draft, and that with it on (explicit or
+  default) a dropped file does. Both `false` tests fail if the composer stops passing
+  the prop on. `AGENTS.md` gains a prop row for it. Additive; default unchanged,
+  consumers do nothing.
 - **CC-fancy-0044 on the map: `FactGraph` takes `evidenceLabel` and `formatDate`.**
   Additive; consumers do nothing.
   - `formatDate?: (iso) => string`: each fact node carries `validFrom` (and `validTo`

@@ -382,6 +382,16 @@ declare function defineSurfaceProfile(profile: SurfaceProfile): Readonly<Surface
 /** Whether a part kind renders in full on this surface. */
 declare function profileAllowsPart(profile: SurfaceProfile | undefined, kind: string): boolean;
 
+/** What a custom approval renderer gets besides the record. */
+interface ApprovalRenderContext {
+    /** Whether this is THE actionable item: the same rule the default card gets. */
+    actionable: boolean;
+    /** The host's `onDecide`. A no-op, with `actionable` false, when the host passed none. */
+    onDecide: ApprovalCardProps["onDecide"];
+    /** The thread's labels, with the host's overrides merged in. */
+    labels: ChatLabels;
+}
+type ApprovalRenderer = (record: ApprovalRecord, ctx: ApprovalRenderContext) => ReactNode | undefined;
 interface AgentThreadProps {
     /** The projected rows (fancy-chat-js `rowsOf`), oldest first. */
     rows: readonly Row[];
@@ -416,6 +426,13 @@ interface AgentThreadProps {
     partViewProps?: Omit<PartViewProps, "part" | "streaming" | "renderHitl">;
     /** Replace how a row renders. Return undefined to fall back to the default. */
     renderRow?: (row: Row) => ReactNode | undefined;
+    /**
+     * Replace just the approval card, in approval rows and in message parts.
+     * `undefined` keeps the default ApprovalCard; `null` renders nothing for that
+     * approval (its data-* handle stays, hidden); anything else replaces the card.
+     * Presentation only: decide through `ctx.onDecide`.
+     */
+    renderApproval?: ApprovalRenderer;
     labels?: Partial<ChatLabels>;
     className?: string;
     /** The surface profile: which part kinds render in full and which HITL kinds this surface acts on. */
@@ -627,4 +644,4 @@ interface UndoCountdownProps {
  */
 declare function UndoCountdown({ entry, onRevert, now: fixedNow, tickMs, totalMs, labels: l }: UndoCountdownProps): ReactNode;
 
-export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, serializePill, useAgentThread };
+export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type ApprovalRenderContext, type ApprovalRenderer, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, serializePill, useAgentThread };

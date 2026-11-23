@@ -8,6 +8,23 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Added
+
+- **`AgentThread` takes `renderApproval`**, to replace just the approval card, in
+  approval rows and in approvals embedded in message parts. Until now `renderRow`
+  could only replace a whole row. Additive; a host that does not pass it renders
+  exactly as before, so consumers do nothing.
+  - `renderApproval(record, { actionable, onDecide, labels })`: `undefined` keeps the
+    default `ApprovalCard`, `null` renders nothing for that approval, anything else
+    replaces the card. New exported types: `ApprovalRenderer`, `ApprovalRenderContext`.
+  - Presentation only. `actionable` is the same value the default card gets, and
+    decisions go through `onDecide`. The default card's in-flight lock is inside the
+    card, so a custom renderer that can be clicked twice must guard that itself.
+  - A replaced or hidden approval keeps `data-fancy-chat-approval` and its `-state`
+    and `-actionable` handles on a wrapper. With `null` the handle stays in the DOM
+    but out of the layout: a row, or a message holding nothing else, moves out of the
+    virtual list so it leaves no blank gap.
+
 ## [0.3.0] - 2026-11-18
 
 **What a consumer must do.** Nothing: every change is additive. The one visible

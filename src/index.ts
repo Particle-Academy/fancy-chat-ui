@@ -30,7 +30,7 @@ export {
   type ToolOutputResolver,
   type ToolRowProps,
 } from "./activity";
-export { AgentThread, type AgentThreadProps } from "./AgentThread";
+export { AgentThread, type AgentThreadProps, type ApprovalRenderContext, type ApprovalRenderer } from "./AgentThread";
 export { AgentComposer, EMPTY_PROMPT_DRAFT, type AgentComposerProps, type AgentComposerSendInput, type SendOutcome } from "./AgentComposer";
 export { useAgentThread, type AgentThreadApi, type UseAgentThreadOptions } from "./useAgentThread";
 export { actionableIn } from "./actionable";

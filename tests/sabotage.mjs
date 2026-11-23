@@ -81,7 +81,7 @@ const MUTATIONS = [
   ["knowledge explorer hides facts", "src/knowledge/KnowledgeExplorer.tsx", "      {adapter.facts || adapter.listFacts ? (\n        <FactsExplorer", "      {false ? (\n        <FactsExplorer"],
   ["retracted messages shown", "src/AgentThread.tsx", '.filter((r) => !(r.kind === "message" && r.retracted))', ".filter(() => true)"],
   ["jump does not ask to follow", "src/AgentThread.tsx", "onClick={() => onFollowChange(true)}", "onClick={() => onFollowChange(false)}"],
-  ["approval not gated by actionable", "src/AgentThread.tsx", "actionable={!!onDecide && actionableId === approvalId}", "actionable={!!onDecide}"],
+  ["approval not gated by actionable", "src/AgentThread.tsx", "const isApprovalActionable = (approvalId: string) => !!onDecide && actionableId === approvalId;", "const isApprovalActionable = (_approvalId: string) => !!onDecide;"],
   ["composer ignores the thread's draft", "src/AgentComposer.tsx", "const draft = drafts[threadId] ?? EMPTY_PROMPT_DRAFT;", "const draft = EMPTY_PROMPT_DRAFT;"],
   ["stop not wired", "src/AgentComposer.tsx", "onStop={canStop ? onStop : undefined}", "onStop={undefined}"],
   ["decision carries the decision", "src/useAgentThread.ts", "        optionId: input.optionId,\n", "        optionId: input.optionId,\n        decision: input.decision,\n"],

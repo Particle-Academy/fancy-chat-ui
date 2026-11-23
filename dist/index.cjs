@@ -1,9 +1,9 @@
 'use strict';
 
 var fancyChatJs = require('@particle-academy/fancy-chat-js');
+var react = require('react');
 var reactFancy = require('@particle-academy/react-fancy');
 var jsxRuntime = require('react/jsx-runtime');
-var react = require('react');
 
 // src/transport.ts
 function parseEvents(data) {
@@ -463,6 +463,9 @@ var SAME_ORIGIN_PATH = /^\/(?![\/\\])/;
 function asString(v) {
   return typeof v === "string" ? v : v === void 0 || v === null ? "" : String(v);
 }
+function HiddenHitl(props) {
+  return /* @__PURE__ */ jsxRuntime.jsx("div", { ...props, hidden: true });
+}
 function PartView(props) {
   const { part, streaming = false, renderers, registry, resolveRef, onCardAction, contentOptions, renderHitl } = props;
   const labels = mergeLabels(props.labels);
@@ -520,8 +523,11 @@ function PartView(props) {
       ] }) });
     }
     case "approval":
-    case "question":
-      return /* @__PURE__ */ jsxRuntime.jsx("div", { ...handle, children: renderHitl ? renderHitl(part) : /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Text, { children: fancyChatJs.partToText(part, registry) }) });
+    case "question": {
+      const hitl = renderHitl ? renderHitl(part) : /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Text, { children: fancyChatJs.partToText(part, registry) });
+      const hidden = react.isValidElement(hitl) && hitl.type === HiddenHitl;
+      return /* @__PURE__ */ jsxRuntime.jsx("div", { ...handle, hidden: hidden || void 0, children: hitl });
+    }
     default:
       return /* @__PURE__ */ jsxRuntime.jsx("div", { ...handle, "data-fancy-chat-part-unknown": "", children: /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Badge, { color: "zinc", variant: "outline", size: "sm", title: labels.unknownPart, children: fancyChatJs.partToText(part, registry) }) });
   }
@@ -876,6 +882,7 @@ function AgentThread(props) {
     onRetryTool,
     partViewProps,
     renderRow,
+    renderApproval: renderApprovalProp,
     className,
     profile,
     onEdit,
@@ -929,20 +936,61 @@ function AgentThread(props) {
     return onLoadEarlier && hasEarlier ? [{ id: EARLIER_ID, row: null }, ...visible] : visible;
   }, [rows, onLoadEarlier, hasEarlier, showBranches, branchOf, activity]);
   const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1] : void 0;
+  const approvalResults = /* @__PURE__ */ new Map();
+  const isApprovalActionable = (approvalId) => !!onDecide && actionableId === approvalId;
+  const customApproval = (record) => {
+    if (!renderApprovalProp) return void 0;
+    if (!approvalResults.has(record.approvalId)) {
+      approvalResults.set(
+        record.approvalId,
+        renderApprovalProp(record, {
+          actionable: isApprovalActionable(record.approvalId),
+          onDecide: onDecide ?? (() => {
+          }),
+          labels
+        })
+      );
+    }
+    return approvalResults.get(record.approvalId);
+  };
   const renderApproval = (approvalId) => {
     const record = state.approvals.find((a) => a.approvalId === approvalId);
     if (!record) return null;
+    const actionable = isApprovalActionable(approvalId);
+    const custom = customApproval(record);
+    if (custom !== void 0) {
+      const handle = {
+        "data-fancy-chat-approval": record.approvalId,
+        "data-fancy-chat-approval-state": record.state,
+        "data-fancy-chat-approval-actionable": actionable && record.state === "pending" ? "true" : "false"
+      };
+      return custom === null ? /* @__PURE__ */ jsxRuntime.jsx(HiddenHitl, { ...handle }) : /* @__PURE__ */ jsxRuntime.jsx("div", { ...handle, children: custom });
+    }
     return /* @__PURE__ */ jsxRuntime.jsx(
       ApprovalCard,
       {
         record,
-        actionable: !!onDecide && actionableId === approvalId,
+        actionable,
         onDecide: onDecide ?? (() => {
         }),
         labels: props.labels,
         partViewProps: partProps
       }
     );
+  };
+  const approvalIsNull = (approvalId) => {
+    const record = state.approvals.find((a) => a.approvalId === approvalId);
+    return !!record && customApproval(record) === null;
+  };
+  const isCollapsed = (item) => {
+    const row = item.row;
+    if (!renderApprovalProp || !row || row.kind !== "approval" && row.kind !== "message") return false;
+    if (renderRow?.(row) !== void 0) return false;
+    if (row.kind === "approval") return approvalIsNull(row.approvalId);
+    if (row.parts.length === 0 || row.open.length > 0 || row.superseded || row.author?.kind === "human" || branchToggleAt.has(row.id)) return false;
+    if (row.delivery && row.delivery !== "sent" && row.delivery !== "delivered" || partProps?.renderers?.approval) return false;
+    if (partProps?.allowedKinds && !partProps.allowedKinds.includes("approval")) return false;
+    return row.parts.every((part) => part.kind === "approval" && approvalIsNull(String(part.approvalId)));
   };
   const renderQuestion = (questionId) => {
     const record = state.questions.find((q) => q.questionId === questionId);
@@ -1056,13 +1104,20 @@ function AgentThread(props) {
     }
     return /* @__PURE__ */ jsxRuntime.jsx("div", { "data-fancy-chat-row": row.kind, "data-fancy-chat-branch": branchOf.get(row.id), className: "px-3 py-1.5", children: body });
   };
+  const collapsed = renderApprovalProp ? items.filter(isCollapsed) : [];
+  const collapsedKey = JSON.stringify(collapsed.map((item) => item.id));
+  const listItems = react.useMemo(() => {
+    const ids = new Set(JSON.parse(collapsedKey));
+    return ids.size === 0 ? items : items.filter((item) => !ids.has(item.id));
+  }, [items, collapsedKey]);
   return /* @__PURE__ */ jsxRuntime.jsxs("div", { "data-fancy-chat-thread": "", "data-fancy-chat-following": follow ? "true" : "false", className: ["relative flex min-h-0 flex-col", className].filter(Boolean).join(" "), style: { height }, children: [
+    collapsed.length > 0 ? /* @__PURE__ */ jsxRuntime.jsx("div", { hidden: true, "data-fancy-chat-hidden-rows": "", children: collapsed.map((item) => /* @__PURE__ */ jsxRuntime.jsx("div", { children: renderOne(item) }, item.id)) }) : null,
     /* @__PURE__ */ jsxRuntime.jsx(
       reactFancy.VirtualList,
       {
         id: "fancy-chat-thread",
         "aria-label": labels.thread,
-        items,
+        items: listItems,
         renderRow: renderOne,
         height: "100%",
         estimateRowHeight,

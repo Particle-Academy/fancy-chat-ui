@@ -272,6 +272,23 @@ On `AgentThread` these are `resolveToolOutput`, `renderToolOutput` and
   onRetryTurn={(turnId) => retry(turnId)} />
 ```
 
+## Custom approval cards
+
+`renderRow` replaces a whole row. To replace only the approval card, in approval rows
+and in approvals embedded in a message, pass `renderApproval`. Return `undefined` to
+keep the default `ApprovalCard`, `null` to show nothing for that approval, or your own
+node. Decisions still go through `onDecide`, and `actionable` is the same rule the
+default card follows.
+
+```tsx
+<AgentThread {...props}
+  renderApproval={(record, { actionable, onDecide }) =>
+    record.title.startsWith("Refund") ? (
+      <RefundApproval record={record} disabled={!actionable} onDecide={onDecide} />
+    ) : undefined
+  } />
+```
+
 ## Develop
 
 To try an unpushed sibling, `npm install --no-save --install-links ../<repo>`.

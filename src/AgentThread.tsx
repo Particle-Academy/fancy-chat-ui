@@ -1,16 +1,28 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Button, ChatMessage, VirtualList } from "@particle-academy/react-fancy";
 import type { ChatMessageData } from "@particle-academy/react-fancy";
-import { type AnswerDraft, type MessageEntry, type Part, type Row, type ThreadState, type ToolEntry } from "@particle-academy/fancy-chat-js";
+import { type AnswerDraft, type ApprovalRecord, type MessageEntry, type Part, type Row, type ThreadState, type ToolEntry } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
-import { ApprovalCard, type ApprovalDecisionInput } from "./ApprovalCard";
+import { ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput } from "./ApprovalCard";
 import { ActivityTimeline, ModelError, PlanRow, ThinkingBlock, ToolRow, type ActivityEntry, type ToolOutputResolver } from "./activity";
 import { mergeLabels, type ChatLabels } from "./labels";
-import { PartView, type PartViewProps } from "./PartView";
+import { HiddenHitl, PartView, type PartViewProps } from "./PartView";
 import type { SurfaceProfile } from "./profile";
 import { UndoCountdown } from "./UndoCountdown";
 import { QuestionForm, type QuestionAnswerInput } from "./QuestionForm";
+
+/** What a custom approval renderer gets besides the record. */
+export interface ApprovalRenderContext {
+  /** Whether this is THE actionable item: the same rule the default card gets. */
+  actionable: boolean;
+  /** The host's `onDecide`. A no-op, with `actionable` false, when the host passed none. */
+  onDecide: ApprovalCardProps["onDecide"];
+  /** The thread's labels, with the host's overrides merged in. */
+  labels: ChatLabels;
+}
+
+export type ApprovalRenderer = (record: ApprovalRecord, ctx: ApprovalRenderContext) => ReactNode | undefined;
 
 export interface AgentThreadProps {
   /** The projected rows (fancy-chat-js `rowsOf`), oldest first. */
@@ -46,6 +58,13 @@ export interface AgentThreadProps {
   partViewProps?: Omit<PartViewProps, "part" | "streaming" | "renderHitl">;
   /** Replace how a row renders. Return undefined to fall back to the default. */
   renderRow?: (row: Row) => ReactNode | undefined;
+  /**
+   * Replace just the approval card, in approval rows and in message parts.
+   * `undefined` keeps the default ApprovalCard; `null` renders nothing for that
+   * approval (its data-* handle stays, hidden); anything else replaces the card.
+   * Presentation only: decide through `ctx.onDecide`.
+   */
+  renderApproval?: ApprovalRenderer;
   labels?: Partial<ChatLabels>;
   className?: string;
   /** The surface profile: which part kinds render in full and which HITL kinds this surface acts on. */
@@ -116,6 +135,7 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     onRetryTool,
     partViewProps,
     renderRow,
+    renderApproval: renderApprovalProp,
     className,
     profile,
     onEdit,
@@ -185,18 +205,70 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
 
   const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1] : undefined;
 
+  // One call per approval per render: the collapse check below and the row both read it.
+  const approvalResults = new Map<string, ReactNode | undefined>();
+  // The one actionable rule, for the default card and a custom renderer alike.
+  const isApprovalActionable = (approvalId: string) => !!onDecide && actionableId === approvalId;
+  const customApproval = (record: ApprovalRecord): ReactNode | undefined => {
+    if (!renderApprovalProp) return undefined;
+    if (!approvalResults.has(record.approvalId)) {
+      approvalResults.set(
+        record.approvalId,
+        renderApprovalProp(record, {
+          actionable: isApprovalActionable(record.approvalId),
+          onDecide: onDecide ?? (() => {}),
+          labels,
+        }),
+      );
+    }
+    return approvalResults.get(record.approvalId);
+  };
+
   const renderApproval = (approvalId: string) => {
     const record = state.approvals.find((a) => a.approvalId === approvalId);
     if (!record) return null;
+    const actionable = isApprovalActionable(approvalId);
+    const custom = customApproval(record);
+    if (custom !== undefined) {
+      // A replaced card no longer carries the handle itself, so the wrapper does.
+      const handle = {
+        "data-fancy-chat-approval": record.approvalId,
+        "data-fancy-chat-approval-state": record.state,
+        "data-fancy-chat-approval-actionable": actionable && record.state === "pending" ? "true" : "false",
+      };
+      return custom === null ? <HiddenHitl {...handle} /> : <div {...handle}>{custom}</div>;
+    }
     return (
       <ApprovalCard
         record={record}
-        actionable={!!onDecide && actionableId === approvalId}
+        actionable={actionable}
         onDecide={onDecide ?? (() => {})}
         labels={props.labels}
         partViewProps={partProps}
       />
     );
+  };
+
+  const approvalIsNull = (approvalId: string) => {
+    const record = state.approvals.find((a) => a.approvalId === approvalId);
+    return !!record && customApproval(record) === null;
+  };
+
+  /**
+   * Whether a row has nothing left to show because the host's renderApproval
+   * returned null. Such a row must leave the VirtualList: the list ignores a
+   * measured height of 0, so a hidden row would keep its last height as a blank gap.
+   */
+  const isCollapsed = (item: ListRow): boolean => {
+    const row = item.row;
+    if (!renderApprovalProp || !row || (row.kind !== "approval" && row.kind !== "message")) return false;
+    if (renderRow?.(row) !== undefined) return false;
+    if (row.kind === "approval") return approvalIsNull(row.approvalId);
+    // A message collapses only when its approvals were all it had to show.
+    if (row.parts.length === 0 || row.open.length > 0 || row.superseded || row.author?.kind === "human" || branchToggleAt.has(row.id)) return false;
+    if ((row.delivery && row.delivery !== "sent" && row.delivery !== "delivered") || partProps?.renderers?.approval) return false;
+    if (partProps?.allowedKinds && !partProps.allowedKinds.includes("approval")) return false;
+    return row.parts.every((part) => part.kind === "approval" && approvalIsNull(String(part.approvalId)));
   };
 
   const renderQuestion = (questionId: string) => {
@@ -342,12 +414,27 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     );
   };
 
+  const collapsed = renderApprovalProp ? items.filter(isCollapsed) : [];
+  // Keyed on the ids, so the list keeps its array (and its offsets) between renders.
+  const collapsedKey = JSON.stringify(collapsed.map((item) => item.id));
+  const listItems = useMemo(() => {
+    const ids = new Set<string>(JSON.parse(collapsedKey) as string[]);
+    return ids.size === 0 ? items : items.filter((item) => !ids.has(item.id));
+  }, [items, collapsedKey]);
+
   return (
     <div data-fancy-chat-thread="" data-fancy-chat-following={follow ? "true" : "false"} className={["relative flex min-h-0 flex-col", className].filter(Boolean).join(" ")} style={{ height }}>
+      {collapsed.length > 0 ? (
+        <div hidden data-fancy-chat-hidden-rows="">
+          {collapsed.map((item) => (
+            <div key={item.id}>{renderOne(item)}</div>
+          ))}
+        </div>
+      ) : null}
       <VirtualList
         id="fancy-chat-thread"
         aria-label={labels.thread}
-        items={items}
+        items={listItems}
         renderRow={renderOne}
         height="100%"
         estimateRowHeight={estimateRowHeight}

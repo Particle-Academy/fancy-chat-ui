@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { isValidElement, type HTMLAttributes, type ReactNode } from "react";
 import { Badge, Button, Card, CodeBlock, ContentRenderer, Table, Text } from "@particle-academy/react-fancy";
 import type { ContentRendererProps } from "@particle-academy/react-fancy";
 import { partToText, type Part, type PartRegistry } from "@particle-academy/fancy-chat-js";
@@ -45,6 +45,14 @@ const SAME_ORIGIN_PATH = /^\/(?![\/\\])/;
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : v === undefined || v === null ? "" : String(v);
+}
+
+/**
+ * Internal (not exported from the package): a HITL item the host chose to render
+ * as nothing. It keeps the item's data-* handle, and PartView hides its wrapper.
+ */
+export function HiddenHitl(props: HTMLAttributes<HTMLDivElement>): ReactNode {
+  return <div {...props} hidden />;
 }
 
 /**
@@ -186,8 +194,16 @@ export function PartView(props: PartViewProps): ReactNode {
       );
     }
     case "approval":
-    case "question":
-      return <div {...handle}>{renderHitl ? renderHitl(part) : <Text>{partToText(part, registry)}</Text>}</div>;
+    case "question": {
+      const hitl = renderHitl ? renderHitl(part) : <Text>{partToText(part, registry)}</Text>;
+      // `hidden`, not just empty: an empty wrapper still takes a gap in the message's flex column.
+      const hidden = isValidElement(hitl) && hitl.type === HiddenHitl;
+      return (
+        <div {...handle} hidden={hidden || undefined}>
+          {hitl}
+        </div>
+      );
+    }
     default:
       // tool parts render through ToolRow in the thread; anything else falls back to text.
       return (

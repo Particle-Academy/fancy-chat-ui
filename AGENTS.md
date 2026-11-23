@@ -34,6 +34,19 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   `activeTurn` and the actions (`send`, `decide`, `answer`, `cancel`, `retry`, ...).
 - `AgentThread` renders the thread; `AgentComposer` is the per-thread-draft composer
   with Stop. The README's "Use" section shows the wiring.
+- `AgentThread` custom approvals:
+
+  | prop | type | default | what it does |
+  |---|---|---|---|
+  | `renderApproval` | `(record: ApprovalRecord, ctx: { actionable, onDecide, labels }) => ReactNode \| undefined` | none | replaces the approval card in approval rows AND message parts. `undefined` keeps the default `ApprovalCard`, `null` renders nothing for that approval, anything else replaces the card |
+
+  It is presentation only: decide through `ctx.onDecide`, and respect `ctx.actionable`
+  (it is not enforced for you outside the default card, and neither is the card's
+  in-flight lock, so guard a double click). Hiding the actionable approval with `null`
+  does not skip it: later approvals keep waiting until it is decided. The
+  `data-fancy-chat-approval` handle stays either way, without `-busy`, which only the
+  default card knows. A hidden row is not in the virtual list, so `scrollToId` to it
+  resolves `false`.
 - `AgentComposer` attaching:
 
   | prop | type | default | what it does |

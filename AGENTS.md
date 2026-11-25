@@ -11,7 +11,7 @@ npm i @particle-academy/fancy-chat-js @particle-academy/fancy-chat-ui
 npx fancy-chat-check-install
 ```
 
-- **Peers:** `@particle-academy/fancy-chat-js >=0.1.0 <2.0`,
+- **Peers:** `@particle-academy/fancy-chat-js >=0.3.1 <2.0`,
   `@particle-academy/react-fancy >=6.28.0 <7.0`, `react ^19`, `react-dom ^19`.
   Optional: `@particle-academy/fancy-echarts` (for `./charts`) and
   `@particle-academy/prism-graph` (types for `./knowledge`).

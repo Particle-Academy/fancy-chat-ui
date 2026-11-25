@@ -88,7 +88,7 @@ describe("packaging", () => {
   });
 
   it("first-party peer ranges are maintained ranges, not file: links or 0.x carets", () => {
-    expect(pkg.peerDependencies["@particle-academy/fancy-chat-js"]).toBe(">=0.1.0 <2.0");
+    expect(pkg.peerDependencies["@particle-academy/fancy-chat-js"]).toBe(">=0.3.1 <2.0");
     // PromptInput `attachments` ships in react-fancy 6.28.0 (`triggers` in 6.27.0). No
     // prerelease: semver ranges exclude prereleases, so every sibling peering on
     // react-fancy (fancy-app-update, fancy-whats-new, fancy-inertia) would refuse one,

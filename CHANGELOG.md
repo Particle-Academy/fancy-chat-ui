@@ -33,6 +33,14 @@ version number is not a stability promise until 1.0; read the entry.
     fancy-chat-js and a server that send `suggestions.updated`; with an older one
     `chat.suggestions` is simply `[]`.
 
+### Changed
+
+- **Peer `@particle-academy/fancy-chat-js` is now `>=0.3.1 <2.0`** (was `>=0.1.0 <2.0`),
+  and the devDependency `^0.3.1` (was `^0.2.0`). 0.3.1 is the first fancy-chat-js with
+  `suggestions.updated` that is free of the 0.3.0 ReDoS in `isSuggestionText`.
+  - **What to do:** if npm reports a peer conflict, update fancy-chat-js to 0.3.1 or
+    later (`npm i @particle-academy/fancy-chat-js@latest`). Nothing else changes.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added

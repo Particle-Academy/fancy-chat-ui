@@ -8,6 +8,8 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-25
+
 ### Fixed
 
 - **The composer's send outcome stayed on "Queued" after the queued message was

@@ -114,6 +114,11 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   carrying your `ref`. The server never accepts bytes in a message, and a restored
   draft's chips carry no `File`.
 - **Hide Stop when the backend cannot cancel:** `canStop={chat.capabilities?.cancel !== false}`.
+- **Pass `outcome={chat.outcome}`; do not keep the send response yourself.** A send
+  that queues behind a running or parked turn answers `queued`, and that answer
+  never changes. `chat.outcome` follows the message's delivery in the thread and
+  clears once it is delivered. If you must hold the outcome in your own state, keep
+  the response's `messageId` and show `sendOutcomeOf(chat.state, outcome)`.
 - **A quick reply is only ever a message.** Wire `onSuggest` to `chat.sendSuggestion`
   (one plain-text part on the message route) or to a composer fill
   (`suggestionDraft`); never to `decide`, `answer` or a tool. Chip text is model

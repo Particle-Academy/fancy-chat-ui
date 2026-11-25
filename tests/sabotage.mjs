@@ -44,7 +44,7 @@ const MUTATIONS = [
   ["collapsed timeline hides failures", "src/activity.tsx", "{!open && failedTools.length > 0 ? (", "{false ? ("],
   ["collapsed timeline shows every row", "src/activity.tsx", "  const failedTools = tools.filter((t) => t.outcome === \"failure\");", "  const failedTools = tools;"],
   ["retry posts the wrong route", "src/transport.ts", "`${thread}/turns/${encodeURIComponent(turnId)}/retry`", "`${thread}/retry`"],
-  ["retry not exposed", "src/useAgentThread.ts", "(transport.retry ? transport.retry(turnId) : Promise.reject(", "(false ? transport.retry!(turnId) : Promise.reject("],
+  ["retry not exposed", "src/useAgentThread.ts", "return retryTurn ? tracked(() => retryTurn(turnId)) : Promise.reject(", "return false ? tracked(() => retryTurn(turnId)) : Promise.reject("],
   ["AgentThread ignores chat.retry", "src/AgentThread.tsx", "const retryTurn = onRetryTurn ?? (chatRetry ? (turnId: string) => void chatRetry(turnId) : undefined);", "const retryTurn = onRetryTurn;"],
   ["chat.retry overrides onRetryTurn", "src/AgentThread.tsx", "const retryTurn = onRetryTurn ?? (chatRetry ? (turnId: string) => void chatRetry(turnId) : undefined);", "const retryTurn = (chatRetry ? (turnId: string) => void chatRetry(turnId) : undefined) ?? onRetryTurn;"],
   ["interval polls hold the worker", "src/transport.ts", "const r = await poll(h.after(), 0, abort.signal);", "const r = await poll(h.after(), pollWaitMs, abort.signal);"],
@@ -185,6 +185,23 @@ const MUTATIONS = [
   ["malformed suggestion items kept", "src/QuickReplies.tsx", 'typeof item.id === "string" && item.id !== "" && ', ""],
   ["a sent suggestion carries a tool part", "src/QuickReplies.tsx", 'return { parts: [{ id: "p1", kind: "text", format: "plain", text: suggestion.text }] };', 'return { parts: [{ id: "p1", kind: "text", format: "plain", text: suggestion.text }, { id: "p2", kind: "tool-call", name: suggestion.text }] };'],
   ["sendSuggestion decides", "src/useAgentThread.ts", "transport.send(suggestionMessage(suggestion))", "transport.decide(suggestion.id, { optionId: suggestion.id })"],
+  // The send outcome follows the projection (Tynn #259)
+  ["outcome stuck on the send response", "src/sendOutcome.ts", "const delivery = projected !== null && !BEHIND_THE_RESPONSE.has(projected) ? projected : sent.delivery;", "const delivery = sent.delivery;"],
+  ["a projection behind the response wins", "src/sendOutcome.ts", "projected !== null && !BEHIND_THE_RESPONSE.has(projected) ?", "projected !== null ?"],
+  ["delivered still shown", "src/sendOutcome.ts", 'const NOTHING_TO_SAY = new Set(["sent", "delivered"]);', 'const NOTHING_TO_SAY = new Set(["sent"]);'],
+  ["outcome never cleared", "src/sendOutcome.ts", "if (NOTHING_TO_SAY.has(delivery)) return null;", ";"],
+  ["a moved-on outcome keeps the old reason", "src/sendOutcome.ts", "return { ...(sent.messageId ? { messageId: sent.messageId } : {}), delivery };", "return { ...sent, delivery };"],
+  ["send response's messageId dropped", "src/useAgentThread.ts", "outcome: { messageId: r.messageId, delivery: r.delivery }", "outcome: { delivery: r.delivery }"],
+  ["a late older send overwrites a newer one", "src/useAgentThread.ts", "if (mine()) setSent({ transport, outcome: { messageId", "if (true) setSent({ transport, outcome: { messageId"],
+  ["a failed send not shown", "src/useAgentThread.ts", 'if (mine()) setSent({ transport, outcome: { delivery: "failed"', 'if (false) setSent({ transport, outcome: { delivery: "failed"'],
+  ["previous line kept while sending", "src/useAgentThread.ts", "      setSent(null);\n", ""],
+  ["outcome survives a thread switch", "src/useAgentThread.ts", "sent && sent.transport === transport ?", "sent ?"],
+  ["send untracked", "src/useAgentThread.ts", "(input: SendInput) => tracked(() => transport.send(input))", "(input: SendInput) => transport.send(input)"],
+  ["sendSuggestion untracked", "src/useAgentThread.ts", "tracked(() => transport.send(suggestionMessage(suggestion)))", "transport.send(suggestionMessage(suggestion))"],
+  ["retry untracked", "src/useAgentThread.ts", "retryTurn ? tracked(() => retryTurn(turnId))", "retryTurn ? retryTurn(turnId)"],
+  ["capabilities reset in an effect (loops an inline transport)", "src/useAgentThread.ts", "  useEffect(() => {\n    if (!transport.capabilities) return;", "  useEffect(() => {\n    setLoadedCapabilities(null);\n    if (!transport.capabilities) return;"],
+  ["stale capabilities on a new transport", "src/useAgentThread.ts", "loadedCapabilities && loadedCapabilities.transport === transport ?", "loadedCapabilities ?"],
+  ["outcome not re-derived on new events", "src/useAgentThread.ts", "[sent, transport, snapshot.version], // eslint-disable-line", "[sent, transport], // eslint-disable-line"],
 ];
 
 function runSuite() {

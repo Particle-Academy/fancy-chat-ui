@@ -1268,6 +1268,21 @@ function AgentComposer(props) {
     outcomeText ? /* @__PURE__ */ jsxRuntime.jsx("div", { "data-fancy-chat-send-outcome": "", "data-fancy-chat-delivery": outcome?.delivery, role: "status", className: outcome?.delivery === "failed" ? "mt-1 text-xs text-red-600 dark:text-red-400" : "mt-1 text-xs opacity-70", children: outcomeText }) : null
   ] });
 }
+
+// src/sendOutcome.ts
+var BEHIND_THE_RESPONSE = /* @__PURE__ */ new Set(["sending", "sent"]);
+var NOTHING_TO_SAY = /* @__PURE__ */ new Set(["sent", "delivered"]);
+function sendOutcomeOf(state, sent) {
+  if (!sent) return null;
+  const message = sent.messageId ? state.messages.find((m) => m.id === sent.messageId) : void 0;
+  const projected = message?.delivery ?? null;
+  const delivery = projected !== null && !BEHIND_THE_RESPONSE.has(projected) ? projected : sent.delivery;
+  if (NOTHING_TO_SAY.has(delivery)) return null;
+  if (delivery === sent.delivery) return sent;
+  return { ...sent.messageId ? { messageId: sent.messageId } : {}, delivery };
+}
+
+// src/useAgentThread.ts
 function useAgentThread(options) {
   const { transport, initial, nudge, actionableKinds, store: shared } = options;
   const store = react.useMemo(() => shared ?? createThreadStore({ transport, ...initial ? { initial } : {}, ...nudge ? { nudge } : {} }), [transport, shared]);
@@ -1289,11 +1304,12 @@ function useAgentThread(options) {
       }
     ]);
   }, [initial, store]);
-  const [capabilities, setCapabilities] = react.useState(null);
+  const [loadedCapabilities, setLoadedCapabilities] = react.useState(null);
+  const capabilities = loadedCapabilities && loadedCapabilities.transport === transport ? loadedCapabilities.value : null;
   react.useEffect(() => {
-    setCapabilities(null);
     if (!transport.capabilities) return;
     let live = true;
+    const setCapabilities = (value) => setLoadedCapabilities({ transport, value });
     transport.capabilities().then(
       (c) => {
         if (live && c && typeof c.cancel === "boolean") setCapabilities(c);
@@ -1310,14 +1326,42 @@ function useAgentThread(options) {
   const kindsKey = kinds.join(",");
   const actionableId = react.useMemo(() => actionableIn(snapshot.state, kindsKey.split(",")), [snapshot.version, kindsKey]);
   const activeTurn = react.useMemo(() => [...snapshot.state.turns].reverse().find((t) => t.state !== "settled") ?? null, [snapshot.version]);
-  const send = react.useCallback((input) => transport.send(input), [transport]);
+  const [sent, setSent] = react.useState(null);
+  const sendCount = react.useRef(0);
+  const tracked = react.useCallback(
+    (start) => {
+      const n = ++sendCount.current;
+      setSent(null);
+      const mine = () => n === sendCount.current;
+      return Promise.resolve(start()).then(
+        (r) => {
+          if (mine()) setSent({ transport, outcome: { messageId: r.messageId, delivery: r.delivery } });
+          return r;
+        },
+        (error) => {
+          if (mine()) setSent({ transport, outcome: { delivery: "failed", reason: error instanceof Error ? error.message : String(error) } });
+          throw error;
+        }
+      );
+    },
+    [transport]
+  );
+  const outcome = react.useMemo(
+    () => sent && sent.transport === transport ? sendOutcomeOf(snapshot.state, sent.outcome) : null,
+    [sent, transport, snapshot.version]
+    // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const send = react.useCallback((input) => tracked(() => transport.send(input)), [transport, tracked]);
   const suggestions = react.useMemo(() => suggestionsOf(snapshot.state), [snapshot.version]);
-  const sendSuggestion = react.useCallback((suggestion) => transport.send(suggestionMessage(suggestion)), [transport]);
+  const sendSuggestion = react.useCallback((suggestion) => tracked(() => transport.send(suggestionMessage(suggestion))), [transport, tracked]);
   const cancel = react.useCallback((mode) => transport.cancel(mode), [transport]);
   const unsend = react.useCallback((id) => transport.unsend(id), [transport]);
   const retry = react.useCallback(
-    (turnId) => transport.retry ? transport.retry(turnId) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry).")),
-    [transport]
+    (turnId) => {
+      const retryTurn = transport.retry?.bind(transport);
+      return retryTurn ? tracked(() => retryTurn(turnId)) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry)."));
+    },
+    [transport, tracked]
   );
   const revertUndo = react.useCallback((id) => transport.revertUndo(id), [transport]);
   const decide = react.useCallback(
@@ -1329,7 +1373,7 @@ function useAgentThread(options) {
     [transport]
   );
   const answer = react.useCallback((input) => transport.answer(input.questionId, { values: input.values, notes: input.notes }), [transport]);
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion, outcome };
 }
 function queuedMessages(state) {
   return state.messages.filter((m) => m.delivery === "queued" && !m.retracted);
@@ -1445,6 +1489,7 @@ exports.mergeLabels = mergeLabels;
 exports.profileAllowsPart = profileAllowsPart;
 exports.queuedMessages = queuedMessages;
 exports.quickRepliesHidden = quickRepliesHidden;
+exports.sendOutcomeOf = sendOutcomeOf;
 exports.serializePill = serializePill;
 exports.suggestionDraft = suggestionDraft;
 exports.suggestionMessage = suggestionMessage;

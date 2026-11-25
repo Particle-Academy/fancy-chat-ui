@@ -1266,6 +1266,21 @@ function AgentComposer(props) {
     outcomeText ? /* @__PURE__ */ jsx("div", { "data-fancy-chat-send-outcome": "", "data-fancy-chat-delivery": outcome?.delivery, role: "status", className: outcome?.delivery === "failed" ? "mt-1 text-xs text-red-600 dark:text-red-400" : "mt-1 text-xs opacity-70", children: outcomeText }) : null
   ] });
 }
+
+// src/sendOutcome.ts
+var BEHIND_THE_RESPONSE = /* @__PURE__ */ new Set(["sending", "sent"]);
+var NOTHING_TO_SAY = /* @__PURE__ */ new Set(["sent", "delivered"]);
+function sendOutcomeOf(state, sent) {
+  if (!sent) return null;
+  const message = sent.messageId ? state.messages.find((m) => m.id === sent.messageId) : void 0;
+  const projected = message?.delivery ?? null;
+  const delivery = projected !== null && !BEHIND_THE_RESPONSE.has(projected) ? projected : sent.delivery;
+  if (NOTHING_TO_SAY.has(delivery)) return null;
+  if (delivery === sent.delivery) return sent;
+  return { ...sent.messageId ? { messageId: sent.messageId } : {}, delivery };
+}
+
+// src/useAgentThread.ts
 function useAgentThread(options) {
   const { transport, initial, nudge, actionableKinds, store: shared } = options;
   const store = useMemo(() => shared ?? createThreadStore({ transport, ...initial ? { initial } : {}, ...nudge ? { nudge } : {} }), [transport, shared]);
@@ -1287,11 +1302,12 @@ function useAgentThread(options) {
       }
     ]);
   }, [initial, store]);
-  const [capabilities, setCapabilities] = useState(null);
+  const [loadedCapabilities, setLoadedCapabilities] = useState(null);
+  const capabilities = loadedCapabilities && loadedCapabilities.transport === transport ? loadedCapabilities.value : null;
   useEffect(() => {
-    setCapabilities(null);
     if (!transport.capabilities) return;
     let live = true;
+    const setCapabilities = (value) => setLoadedCapabilities({ transport, value });
     transport.capabilities().then(
       (c) => {
         if (live && c && typeof c.cancel === "boolean") setCapabilities(c);
@@ -1308,14 +1324,42 @@ function useAgentThread(options) {
   const kindsKey = kinds.join(",");
   const actionableId = useMemo(() => actionableIn(snapshot.state, kindsKey.split(",")), [snapshot.version, kindsKey]);
   const activeTurn = useMemo(() => [...snapshot.state.turns].reverse().find((t) => t.state !== "settled") ?? null, [snapshot.version]);
-  const send = useCallback((input) => transport.send(input), [transport]);
+  const [sent, setSent] = useState(null);
+  const sendCount = useRef(0);
+  const tracked = useCallback(
+    (start) => {
+      const n = ++sendCount.current;
+      setSent(null);
+      const mine = () => n === sendCount.current;
+      return Promise.resolve(start()).then(
+        (r) => {
+          if (mine()) setSent({ transport, outcome: { messageId: r.messageId, delivery: r.delivery } });
+          return r;
+        },
+        (error) => {
+          if (mine()) setSent({ transport, outcome: { delivery: "failed", reason: error instanceof Error ? error.message : String(error) } });
+          throw error;
+        }
+      );
+    },
+    [transport]
+  );
+  const outcome = useMemo(
+    () => sent && sent.transport === transport ? sendOutcomeOf(snapshot.state, sent.outcome) : null,
+    [sent, transport, snapshot.version]
+    // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const send = useCallback((input) => tracked(() => transport.send(input)), [transport, tracked]);
   const suggestions = useMemo(() => suggestionsOf(snapshot.state), [snapshot.version]);
-  const sendSuggestion = useCallback((suggestion) => transport.send(suggestionMessage(suggestion)), [transport]);
+  const sendSuggestion = useCallback((suggestion) => tracked(() => transport.send(suggestionMessage(suggestion))), [transport, tracked]);
   const cancel = useCallback((mode) => transport.cancel(mode), [transport]);
   const unsend = useCallback((id) => transport.unsend(id), [transport]);
   const retry = useCallback(
-    (turnId) => transport.retry ? transport.retry(turnId) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry).")),
-    [transport]
+    (turnId) => {
+      const retryTurn = transport.retry?.bind(transport);
+      return retryTurn ? tracked(() => retryTurn(turnId)) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry)."));
+    },
+    [transport, tracked]
   );
   const revertUndo = useCallback((id) => transport.revertUndo(id), [transport]);
   const decide = useCallback(
@@ -1327,7 +1371,7 @@ function useAgentThread(options) {
     [transport]
   );
   const answer = useCallback((input) => transport.answer(input.questionId, { values: input.values, notes: input.notes }), [transport]);
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion, outcome };
 }
 function queuedMessages(state) {
   return state.messages.filter((m) => m.delivery === "queued" && !m.retracted);
@@ -1419,6 +1463,6 @@ function profileAllowsPart(profile, kind) {
   return !profile?.parts || profile.parts.includes(kind);
 }
 
-export { ActivityTimeline, AgentComposer, AgentThread, ApprovalCard, DEFAULT_LABELS, EMPTY_PROMPT_DRAFT, ModelError, PartView, PlanRow, QuestionForm, QueueBar, QuickReplies, ThinkingBlock, ToolRow, UndoCountdown, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, mergeLabels, profileAllowsPart, queuedMessages, quickRepliesHidden, serializePill, suggestionDraft, suggestionMessage, suggestionsOf, useAgentThread };
+export { ActivityTimeline, AgentComposer, AgentThread, ApprovalCard, DEFAULT_LABELS, EMPTY_PROMPT_DRAFT, ModelError, PartView, PlanRow, QuestionForm, QueueBar, QuickReplies, ThinkingBlock, ToolRow, UndoCountdown, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, mergeLabels, profileAllowsPart, queuedMessages, quickRepliesHidden, sendOutcomeOf, serializePill, suggestionDraft, suggestionMessage, suggestionsOf, useAgentThread };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

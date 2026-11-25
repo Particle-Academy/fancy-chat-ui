@@ -73,7 +73,7 @@ const [follow, setFollow] = useState(true);
 
 <AgentThread rows={chat.rows} state={chat.state} follow={follow} onFollowChange={setFollow} onDecide={chat.decide} onAnswer={chat.answer} chat={chat} />
 <AgentComposer threadId={threadId} drafts={drafts} onDraftsChange={setDrafts} running={!!chat.activeTurn}
-  onStop={() => chat.cancel("stop")} canStop={chat.capabilities?.cancel !== false}
+  onStop={() => chat.cancel("stop")} canStop={chat.capabilities?.cancel !== false} outcome={chat.outcome}
   onSend={({ text }) => chat.send({ parts: [{ id: "p1", kind: "text", format: "plain", text }] })} />
 ```
 

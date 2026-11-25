@@ -555,6 +555,11 @@ interface SendOutcome {
     /** A fancy-chat-js delivery state: sent, queued, steered, delivered, failed, dropped, unsent. */
     delivery: string;
     reason?: string;
+    /**
+     * The sent message's id (the send response's `messageId`), so the outcome can
+     * follow that message's delivery in the projection: see `sendOutcomeOf`.
+     */
+    messageId?: string;
 }
 interface AgentComposerSendInput {
     threadId: string;
@@ -585,7 +590,12 @@ interface AgentComposerProps {
      * turn is running, but offers no Stop.
      */
     canStop?: boolean;
-    /** The last send's outcome, shown under the input. */
+    /**
+     * The last send's outcome, shown under the input. Pass `chat.outcome`
+     * (useAgentThread), which follows the message's delivery in the thread: a
+     * queued message stops saying "Queued" once it is delivered. A value you keep
+     * yourself is shown as it is; re-derive it with `sendOutcomeOf(chat.state, it)`.
+     */
     outcome?: SendOutcome | null;
     commands?: PromptCmd[];
     mentions?: PromptMention[];
@@ -666,6 +676,14 @@ interface AgentThreadApi extends ThreadSnapshot {
     suggestions: QuickReply[];
     /** Sends a quick reply as an ordinary human message (one plain-text part). Never a decision or an answer. */
     sendSuggestion: (suggestion: QuickReply) => Promise<SendResult>;
+    /**
+     * The newest `send`, `sendSuggestion` or `retry`'s outcome, for AgentComposer
+     * `outcome`. It follows the message's delivery in the projection (queued, then
+     * delivered), so it is never stuck on the send response: null once the message
+     * is delivered, and for a plain `sent`. A rejected send is `failed` with the
+     * error's message until the next send. Null before any send and on a new transport.
+     */
+    outcome: SendOutcome | null;
 }
 /**
  * One engine for a chat surface: seq dedupe, gap repair, the shared reducer and
@@ -673,6 +691,19 @@ interface AgentThreadApi extends ThreadSnapshot {
  * share one store by passing the same transport and options.
  */
 declare function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi;
+
+/**
+ * The send outcome as it stands NOW: the message's current delivery in the
+ * projection, or the send response while the projection has not caught up.
+ * Null once the message is delivered (it is in the thread; a line saying so is
+ * noise) and for a plain `sent`. A failure has no message and stays until the
+ * next send replaces it.
+ *
+ * `useAgentThread().outcome` is this, kept for you. Call it yourself only if
+ * you hold the outcome in your own state: pass the send response's
+ * `messageId`, or there is nothing to follow and the response is all it shows.
+ */
+declare function sendOutcomeOf(state: ThreadState, sent: SendOutcome | null | undefined): SendOutcome | null;
 
 /**
  * The one actionable HITL item in a projected thread (fancy-chat-js
@@ -723,4 +754,4 @@ interface UndoCountdownProps {
  */
 declare function UndoCountdown({ entry, onRevert, now: fixedNow, tickMs, totalMs, labels: l }: UndoCountdownProps): ReactNode;
 
-export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type ApprovalRenderContext, type ApprovalRenderer, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, QuickReplies, type QuickRepliesProps, type QuickReply, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, quickRepliesHidden, serializePill, suggestionDraft, suggestionMessage, suggestionsOf, useAgentThread };
+export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type ApprovalRenderContext, type ApprovalRenderer, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, QuickReplies, type QuickRepliesProps, type QuickReply, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, quickRepliesHidden, sendOutcomeOf, serializePill, suggestionDraft, suggestionMessage, suggestionsOf, useAgentThread };

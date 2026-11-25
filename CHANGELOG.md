@@ -8,6 +8,40 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The composer's send outcome stayed on "Queued" after the queued message was
+  delivered, run and answered (Tynn #259).** `AgentComposer` `outcome` was only ever
+  a value the host set from the send response, once, and nothing in this package
+  offered a way to keep it current, so a message that queued behind a running or
+  parked turn (or a quick reply sent with `sendSuggestion`) kept saying "Queued"
+  after the turn had settled and the answer was on screen. fancy-chat-js already
+  projected the message's `delivery` moving from `queued` to `delivered`; the line
+  never read it.
+  - New `useAgentThread().outcome`: the newest `send`, `sendSuggestion` or `retry`'s
+    outcome, re-derived from the message's delivery in the projection on every
+    event. It is null once the message is delivered and for a plain `sent`; it shows
+    `queued`, `steered`, `decided`, `unsent` or `dropped` while that is the message's
+    state; a rejected send shows `failed` with the error until the next send. Only
+    the newest send writes it, and a new transport starts with none.
+  - New `sendOutcomeOf(state, outcome)` and optional `SendOutcome.messageId`, for a
+    host that keeps the outcome in its own state: store the response's `messageId`
+    and pass `sendOutcomeOf(chat.state, outcome)`.
+  - Upgrading: pass `outcome={chat.outcome}` to `AgentComposer` and drop your own
+    outcome state. A host that keeps its own outcome and changes nothing sees the
+    same line as before, stale "Queued" included, because the composer shows the
+    value it is given. Nothing else changes: `send`, `sendSuggestion` and `retry`
+    resolve and reject exactly as before.
+- **`useAgentThread` no longer re-renders forever after an update when the host
+  builds its transport inline** (a new transport object every render). The
+  capabilities effect reset its state on every transport change, so any other
+  update (the send outcome above, for one) started an endless render loop. The
+  capabilities are now keyed by their transport instead, and a new transport still
+  reads `null` until its own capabilities load. The README's `useMemo` transport was
+  never affected. Upgrading: nothing to do.
+- The test config set `esbuild.jsx`, which Vite 8 ignores with a warning on every
+  run; it now sets `oxc.jsx` instead. Tests only, nothing ships.
+
 ## [0.5.1] - 2026-11-25
 
 ### Fixed

@@ -21,7 +21,8 @@ reads prism-graph's TYPES (`import type` only: a runtime import would pull its
 |---|---|
 | `src/transport.ts` | HTTP transport: SSE, long-poll fallback, the POST routes. Sends no actor, ever. `wait` is milliseconds (what fancy-chat-php reads). |
 | `src/store.ts` | Seq log + the fancy-chat-js reducer; gap repair; the optional nudge; drops a cancelled turn's tail by turnId. |
-| `src/useAgentThread.ts` | The hook over the store, with `actionableId` and the actions. |
+| `src/useAgentThread.ts` | The hook over the store, with `actionableId` and the actions. `send`, `sendSuggestion` and `retry` record the newest response for `outcome`. |
+| `src/sendOutcome.ts` | `sendOutcomeOf`: the send outcome re-derived from the message's projected delivery, never left on the send response. |
 | `src/AgentThread.tsx` | VirtualList + ChatMessage `body`; row renderers; HITL placement. |
 | `src/AgentComposer.tsx` | PromptInput with per-thread drafts (`draftKey`), Stop, outcome line. |
 | `src/PartView.tsx`, `src/activity.tsx`, `src/ApprovalCard.tsx`, `src/QuestionForm.tsx` | Parts, activity rows, HITL. |

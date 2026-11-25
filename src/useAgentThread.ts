@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { AnswerDraft, ChatEvent, ThreadState } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
 import { suggestionMessage, suggestionsOf, type QuickReply } from "./QuickReplies";
 
+import type { SendOutcome } from "./AgentComposer";
 import type { ApprovalDecisionInput } from "./ApprovalCard";
+import { sendOutcomeOf } from "./sendOutcome";
 import type { QuestionAnswerInput } from "./QuestionForm";
 import { createThreadStore, type ThreadSnapshot, type ThreadStore } from "./store";
 import type { BackendCapabilities, ChatTransport, SendInput, SendResult } from "./transport";
@@ -51,6 +53,14 @@ export interface AgentThreadApi extends ThreadSnapshot {
   suggestions: QuickReply[];
   /** Sends a quick reply as an ordinary human message (one plain-text part). Never a decision or an answer. */
   sendSuggestion: (suggestion: QuickReply) => Promise<SendResult>;
+  /**
+   * The newest `send`, `sendSuggestion` or `retry`'s outcome, for AgentComposer
+   * `outcome`. It follows the message's delivery in the projection (queued, then
+   * delivered), so it is never stuck on the send response: null once the message
+   * is delivered, and for a plain `sent`. A rejected send is `failed` with the
+   * error's message until the next send. Null before any send and on a new transport.
+   */
+  outcome: SendOutcome | null;
 }
 
 /**
@@ -89,11 +99,15 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
     ]);
   }, [initial, store]);
 
-  const [capabilities, setCapabilities] = useState<BackendCapabilities | null>(null);
+  // Keyed by transport, so a new transport reads as null without a reset in the
+  // effect. A reset there (a setState on every transport change) looped forever
+  // under a host that builds its transport inline, once any other update re-rendered.
+  const [loadedCapabilities, setLoadedCapabilities] = useState<{ transport: ChatTransport; value: BackendCapabilities } | null>(null);
+  const capabilities = loadedCapabilities && loadedCapabilities.transport === transport ? loadedCapabilities.value : null;
   useEffect(() => {
-    setCapabilities(null);
     if (!transport.capabilities) return;
     let live = true;
+    const setCapabilities = (value: BackendCapabilities) => setLoadedCapabilities({ transport, value });
     transport.capabilities().then(
       (c) => {
         if (live && c && typeof c.cancel === "boolean") setCapabilities(c);
@@ -113,14 +127,45 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
 
   const activeTurn = useMemo(() => [...snapshot.state.turns].reverse().find((t) => t.state !== "settled") ?? null, [snapshot.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const send = useCallback((input: SendInput) => transport.send(input), [transport]);
+  // The newest send's response, keyed by its transport so another thread starts
+  // with none. Only the newest send writes it: an older one resolving late does
+  // not overwrite a newer one. What is SHOWN is re-derived from the projection.
+  const [sent, setSent] = useState<{ transport: ChatTransport; outcome: SendOutcome } | null>(null);
+  const sendCount = useRef(0);
+  const tracked = useCallback(
+    (start: () => Promise<SendResult>): Promise<SendResult> => {
+      const n = ++sendCount.current;
+      setSent(null);
+      const mine = () => n === sendCount.current;
+      return Promise.resolve(start()).then(
+        (r) => {
+          if (mine()) setSent({ transport, outcome: { messageId: r.messageId, delivery: r.delivery } });
+          return r;
+        },
+        (error: unknown) => {
+          if (mine()) setSent({ transport, outcome: { delivery: "failed", reason: error instanceof Error ? error.message : String(error) } });
+          throw error;
+        },
+      );
+    },
+    [transport],
+  );
+  const outcome = useMemo(
+    () => (sent && sent.transport === transport ? sendOutcomeOf(snapshot.state, sent.outcome) : null),
+    [sent, transport, snapshot.version], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const send = useCallback((input: SendInput) => tracked(() => transport.send(input)), [transport, tracked]);
   const suggestions = useMemo(() => suggestionsOf(snapshot.state), [snapshot.version]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sendSuggestion = useCallback((suggestion: QuickReply) => transport.send(suggestionMessage(suggestion)), [transport]);
+  const sendSuggestion = useCallback((suggestion: QuickReply) => tracked(() => transport.send(suggestionMessage(suggestion))), [transport, tracked]);
   const cancel = useCallback((mode: "stop" | "interrupt") => transport.cancel(mode), [transport]);
   const unsend = useCallback((id: string) => transport.unsend(id), [transport]);
   const retry = useCallback(
-    (turnId: string) => (transport.retry ? transport.retry(turnId) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry)."))),
-    [transport],
+    (turnId: string) => {
+      const retryTurn = transport.retry?.bind(transport);
+      return retryTurn ? tracked(() => retryTurn(turnId)) : Promise.reject(new Error("This chat transport cannot retry a turn (no transport.retry)."));
+    },
+    [transport, tracked],
   );
   const revertUndo = useCallback((id: string) => transport.revertUndo(id), [transport]);
   const decide = useCallback(
@@ -133,5 +178,5 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   );
   const answer = useCallback((input: QuestionAnswerInput) => transport.answer(input.questionId, { values: input.values, notes: input.notes } as AnswerDraft), [transport]);
 
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion, outcome };
 }

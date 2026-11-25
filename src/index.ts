@@ -33,6 +33,7 @@ export {
 export { AgentThread, type AgentThreadProps, type ApprovalRenderContext, type ApprovalRenderer } from "./AgentThread";
 export { AgentComposer, EMPTY_PROMPT_DRAFT, type AgentComposerProps, type AgentComposerSendInput, type SendOutcome } from "./AgentComposer";
 export { useAgentThread, type AgentThreadApi, type UseAgentThreadOptions } from "./useAgentThread";
+export { sendOutcomeOf } from "./sendOutcome";
 export { actionableIn } from "./actionable";
 export {
   QuickReplies,

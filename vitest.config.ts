@@ -9,7 +9,7 @@ export default defineConfig({
     restoreMocks: true,
     setupFiles: ["tests/setup.ts"],
   },
-  esbuild: {
-    jsx: "automatic",
+  oxc: {
+    jsx: { runtime: "automatic" },
   },
 });

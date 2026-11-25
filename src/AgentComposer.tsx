@@ -13,6 +13,11 @@ export interface SendOutcome {
   /** A fancy-chat-js delivery state: sent, queued, steered, delivered, failed, dropped, unsent. */
   delivery: string;
   reason?: string;
+  /**
+   * The sent message's id (the send response's `messageId`), so the outcome can
+   * follow that message's delivery in the projection: see `sendOutcomeOf`.
+   */
+  messageId?: string;
 }
 
 export interface AgentComposerSendInput {
@@ -42,7 +47,12 @@ export interface AgentComposerProps {
    * turn is running, but offers no Stop.
    */
   canStop?: boolean;
-  /** The last send's outcome, shown under the input. */
+  /**
+   * The last send's outcome, shown under the input. Pass `chat.outcome`
+   * (useAgentThread), which follows the message's delivery in the thread: a
+   * queued message stops saying "Queued" once it is delivered. A value you keep
+   * yourself is shown as it is; re-derive it with `sendOutcomeOf(chat.state, it)`.
+   */
   outcome?: SendOutcome | null;
   commands?: PromptCmd[];
   mentions?: PromptMention[];

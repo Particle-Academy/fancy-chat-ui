@@ -69,6 +69,14 @@ reads prism-graph's TYPES (`import type` only: a runtime import would pull its
 12. **A pill label can never close or split its pill.** `serializePill` strips the
     grammar's delimiters and control characters.
 
+13. **A quick reply is only ever a message, and hides behind every decision.**
+    `src/QuickReplies.tsx`: a chip calls `onSuggest({ id, text })` only;
+    `suggestionMessage` is one plain-text part and `sendSuggestion` uses `send`, never
+    `decide` or `answer`. `quickRepliesHidden` hides them while any turn is unsettled,
+    an approval is pending or deciding, a question is open, the newest message is the
+    human's, or the host's `suggestionsHidden` is set. `suggestionsOf` reads
+    `state.suggestions` defensively (the devDependency fancy-chat-js may predate it).
+
 ## Dev dependencies
 
 `@particle-academy/react-fancy` (`^6.28.0`) and `@particle-academy/fancy-chat-js`

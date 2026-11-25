@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { P as PartRenderer } from './PartView-BUiua884.js';
+import { P as PartRenderer } from './PartView-DWzAn_Qb.js';
 import { F as FactGraphProps } from './graph-DKlGQEuJ.js';
 import '@particle-academy/react-fancy';
 import '@particle-academy/fancy-chat-js';

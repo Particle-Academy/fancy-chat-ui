@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { AnswerDraft, ChatEvent, ThreadState } from "@particle-academy/fancy-chat-js";
 
 import { actionableIn } from "./actionable";
+import { suggestionMessage, suggestionsOf, type QuickReply } from "./QuickReplies";
 
 import type { ApprovalDecisionInput } from "./ApprovalCard";
 import type { QuestionAnswerInput } from "./QuestionForm";
@@ -43,6 +44,13 @@ export interface AgentThreadApi extends ThreadSnapshot {
    * transport cannot retry. Pass the hook to AgentThread as `chat` and its Retry uses this.
    */
   retry: (turnId: string) => Promise<SendResult>;
+  /**
+   * The newest settled turn's quick replies (fancy-chat-js `state.suggestions`), or
+   * none. Pass to AgentThread `suggestions`.
+   */
+  suggestions: QuickReply[];
+  /** Sends a quick reply as an ordinary human message (one plain-text part). Never a decision or an answer. */
+  sendSuggestion: (suggestion: QuickReply) => Promise<SendResult>;
 }
 
 /**
@@ -106,6 +114,8 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   const activeTurn = useMemo(() => [...snapshot.state.turns].reverse().find((t) => t.state !== "settled") ?? null, [snapshot.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback((input: SendInput) => transport.send(input), [transport]);
+  const suggestions = useMemo(() => suggestionsOf(snapshot.state), [snapshot.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sendSuggestion = useCallback((suggestion: QuickReply) => transport.send(suggestionMessage(suggestion)), [transport]);
   const cancel = useCallback((mode: "stop" | "interrupt") => transport.cancel(mode), [transport]);
   const unsend = useCallback((id: string) => transport.unsend(id), [transport]);
   const retry = useCallback(
@@ -123,5 +133,5 @@ export function useAgentThread(options: UseAgentThreadOptions): AgentThreadApi {
   );
   const answer = useCallback((input: QuestionAnswerInput) => transport.answer(input.questionId, { values: input.values, notes: input.notes } as AnswerDraft), [transport]);
 
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion };
 }

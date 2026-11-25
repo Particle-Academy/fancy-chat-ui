@@ -453,7 +453,8 @@ var DEFAULT_LABELS = {
   hideActivity: "Hide steps",
   turnFailed: (reason) => reason ? `The agent stopped: ${reason}` : "The agent stopped with an error.",
   turnRefused: "The agent declined this request.",
-  turnRetry: "Retry"
+  turnRetry: "Retry",
+  quickReplies: "Suggested replies"
 };
 function mergeLabels(labels) {
   return labels ? { ...DEFAULT_LABELS, ...labels } : DEFAULT_LABELS;
@@ -857,6 +858,62 @@ function UndoCountdown({ entry, onRevert, now: fixedNow, tickMs = 250, totalMs, 
     entry.state === "open" && onRevert ? /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Button, { size: "xs", "data-fancy-chat-undo-revert": "", disabled: !canRevert || busy, onClick: revert, children: labels.undoRevert }) : null
   ] });
 }
+function QuickReplies(props) {
+  const { suggestions, onSuggest, className } = props;
+  const labels = mergeLabels(props.labels);
+  const group = react.useRef(null);
+  if (suggestions.length === 0) return null;
+  const onKeyDown = (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const chips = Array.from(group.current?.querySelectorAll("[data-fancy-chat-suggestion]") ?? []);
+    const at = chips.indexOf(document.activeElement);
+    if (at < 0 || chips.length === 0) return;
+    e.preventDefault();
+    const next = (at + (e.key === "ArrowRight" ? 1 : -1) + chips.length) % chips.length;
+    chips[next]?.focus();
+  };
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "div",
+    {
+      ref: group,
+      role: "group",
+      "aria-label": labels.quickReplies,
+      "data-fancy-chat-suggestions": "",
+      onKeyDown,
+      className: ["flex flex-wrap gap-1.5", className].filter(Boolean).join(" "),
+      children: suggestions.map((s) => /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Button, { type: "button", size: "sm", "data-fancy-chat-suggestion": s.id, onClick: () => onSuggest({ id: s.id, text: s.text }), children: s.text }, s.id))
+    }
+  );
+}
+function quickRepliesHidden(state, options = {}) {
+  if (options.hidden) return true;
+  if (state.turns.some((t) => t.state !== "settled")) return true;
+  if (state.approvals.some((a) => a.state === "pending" || a.state === "deciding")) return true;
+  if (state.questions.some((q) => (q.state ?? "open") === "open")) return true;
+  const messages = state.messages.filter((m) => !m.retracted);
+  const last = messages.length > 0 ? messages[messages.length - 1] : void 0;
+  return !last || last.author?.kind === "human";
+}
+function suggestionsOf(state) {
+  const entry = state.suggestions;
+  if (!entry || typeof entry !== "object") return [];
+  const { turnId, items } = entry;
+  const newest = state.turns.length > 0 ? state.turns[state.turns.length - 1] : void 0;
+  if (typeof turnId !== "string" || !newest || newest.turnId !== turnId || !Array.isArray(items)) return [];
+  const out = [];
+  for (const item of items) {
+    if (item && typeof item === "object" && typeof item.id === "string" && item.id !== "" && typeof item.text === "string" && item.text !== "") {
+      out.push({ id: item.id, text: item.text });
+    }
+  }
+  return out;
+}
+function suggestionDraft(suggestion) {
+  return { v: 1, text: suggestion.text, pills: [], attachments: [] };
+}
+function suggestionMessage(suggestion) {
+  return { parts: [{ id: "p1", kind: "text", format: "plain", text: suggestion.text }] };
+}
 var EARLIER_ID = "__fancy_chat_earlier__";
 function AgentThread(props) {
   const {
@@ -894,7 +951,10 @@ function AgentThread(props) {
     maxToolOutputChars,
     activity = "rows",
     onRetryTurn,
-    chat
+    chat,
+    suggestions,
+    onSuggest,
+    suggestionsHidden
   } = props;
   const chatRetry = chat?.retry;
   const retryTurn = onRetryTurn ?? (chatRetry ? (turnId) => void chatRetry(turnId) : void 0);
@@ -1129,6 +1189,7 @@ function AgentThread(props) {
         anchorOnPrepend: true
       }
     ),
+    onSuggest && suggestions && suggestions.length > 0 && !quickRepliesHidden(state, { hidden: suggestionsHidden }) ? /* @__PURE__ */ jsxRuntime.jsx("div", { className: "px-3 py-1.5", children: /* @__PURE__ */ jsxRuntime.jsx(QuickReplies, { suggestions, onSuggest, labels: props.labels }) }) : null,
     lastTurn ? /* @__PURE__ */ jsxRuntime.jsx("div", { className: "px-3 py-1", children: /* @__PURE__ */ jsxRuntime.jsx(ModelError, { turn: lastTurn, onRetry: retryTurn, labels: props.labels }) }) : null,
     !follow ? /* @__PURE__ */ jsxRuntime.jsx("div", { className: "pointer-events-none absolute inset-x-0 bottom-2 flex justify-center", children: /* @__PURE__ */ jsxRuntime.jsx(reactFancy.Button, { size: "sm", className: "pointer-events-auto", "data-fancy-chat-jump": "", "data-fancy-chat-unseen": unseen, onClick: () => onFollowChange(true), children: labels.jumpToLatest(unseen) }) }) : null
   ] });
@@ -1216,6 +1277,8 @@ function useAgentThread(options) {
   const actionableId = react.useMemo(() => actionableIn(snapshot.state, kindsKey.split(",")), [snapshot.version, kindsKey]);
   const activeTurn = react.useMemo(() => [...snapshot.state.turns].reverse().find((t) => t.state !== "settled") ?? null, [snapshot.version]);
   const send = react.useCallback((input) => transport.send(input), [transport]);
+  const suggestions = react.useMemo(() => suggestionsOf(snapshot.state), [snapshot.version]);
+  const sendSuggestion = react.useCallback((suggestion) => transport.send(suggestionMessage(suggestion)), [transport]);
   const cancel = react.useCallback((mode) => transport.cancel(mode), [transport]);
   const unsend = react.useCallback((id) => transport.unsend(id), [transport]);
   const retry = react.useCallback(
@@ -1232,7 +1295,7 @@ function useAgentThread(options) {
     [transport]
   );
   const answer = react.useCallback((input) => transport.answer(input.questionId, { values: input.values, notes: input.notes }), [transport]);
-  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry };
+  return { ...snapshot, store, actionableId, activeTurn, send, cancel, unsend, revertUndo, decide, answer, capabilities, retry, suggestions, sendSuggestion };
 }
 function queuedMessages(state) {
   return state.messages.filter((m) => m.delivery === "queued" && !m.retracted);
@@ -1335,6 +1398,7 @@ exports.PartView = PartView;
 exports.PlanRow = PlanRow;
 exports.QuestionForm = QuestionForm;
 exports.QueueBar = QueueBar;
+exports.QuickReplies = QuickReplies;
 exports.ThinkingBlock = ThinkingBlock;
 exports.ToolRow = ToolRow;
 exports.UndoCountdown = UndoCountdown;
@@ -1346,7 +1410,11 @@ exports.defineSurfaceProfile = defineSurfaceProfile;
 exports.mergeLabels = mergeLabels;
 exports.profileAllowsPart = profileAllowsPart;
 exports.queuedMessages = queuedMessages;
+exports.quickRepliesHidden = quickRepliesHidden;
 exports.serializePill = serializePill;
+exports.suggestionDraft = suggestionDraft;
+exports.suggestionMessage = suggestionMessage;
+exports.suggestionsOf = suggestionsOf;
 exports.useAgentThread = useAgentThread;
 //# sourceMappingURL=index.cjs.map
 //# sourceMappingURL=index.cjs.map

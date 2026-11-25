@@ -1,6 +1,6 @@
 import { ChatEvent, Part, AnswerDraft, ThreadState, Row, Gap, Decision, ApprovalRecord, QuestionRecord, ThinkingEntry, ToolEntry, TurnEntry, PlanEntry, MessageEntry, TypedApprovalConfig, UndoEntry } from '@particle-academy/fancy-chat-js';
-import { C as ChatLabels, a as PartViewProps } from './PartView-BUiua884.js';
-export { D as DEFAULT_LABELS, b as PartRenderContext, P as PartRenderer, c as PartView, R as RefResolver, m as mergeLabels } from './PartView-BUiua884.js';
+import { C as ChatLabels, a as PartViewProps } from './PartView-DWzAn_Qb.js';
+export { D as DEFAULT_LABELS, b as PartRenderContext, P as PartRenderer, c as PartView, R as RefResolver, m as mergeLabels } from './PartView-DWzAn_Qb.js';
 import { ReactNode } from 'react';
 import { PromptTriggerItem, PromptTrigger, PromptDraft, PromptAttachment, PromptCmd, PromptMention } from '@particle-academy/react-fancy';
 
@@ -382,6 +382,53 @@ declare function defineSurfaceProfile(profile: SurfaceProfile): Readonly<Surface
 /** Whether a part kind renders in full on this surface. */
 declare function profileAllowsPart(profile: SurfaceProfile | undefined, kind: string): boolean;
 
+/**
+ * One quick reply (fancy-chat-js `Suggestion`): a stable id and one line of plain
+ * text. Model output, so it is rendered as text, never as markdown or HTML.
+ */
+interface QuickReply {
+    id: string;
+    text: string;
+}
+interface QuickRepliesProps {
+    /** Controlled: the chips to show, in order. Usually `chat.suggestions`. */
+    suggestions: readonly QuickReply[];
+    /**
+     * A pick. Fill the composer (`suggestionDraft`) or send it as an ordinary
+     * message (`chat.sendSuggestion`); a pick never decides, answers or calls a tool.
+     */
+    onSuggest: (suggestion: QuickReply) => void;
+    labels?: Partial<ChatLabels>;
+    className?: string;
+}
+/**
+ * The chips: a labelled group of real buttons, so Tab reaches them and Enter or
+ * Space picks one; the arrow keys move between them. Stable handles:
+ * `data-fancy-chat-suggestions` on the group, `data-fancy-chat-suggestion="<id>"`
+ * on each chip.
+ */
+declare function QuickReplies(props: QuickRepliesProps): ReactNode;
+/**
+ * Whether quick replies must stay out of sight: while any turn is unsettled, while
+ * a human decision waits (an approval pending or being decided, a question open),
+ * once the newest message is the human's own, or when the host says so (`hidden`,
+ * for its own decision states such as an approval-queue modal).
+ */
+declare function quickRepliesHidden(state: ThreadState, options?: {
+    hidden?: boolean;
+}): boolean;
+/**
+ * The projected quick replies (fancy-chat-js `state.suggestions`) when they belong
+ * to the newest turn; otherwise none. Reads defensively: a projection from a
+ * fancy-chat-js without the field, or a malformed entry, yields none, and an item
+ * that is not `{ id: string, text: string }` is skipped.
+ */
+declare function suggestionsOf(state: ThreadState): QuickReply[];
+/** A composer draft holding the suggestion's text, for "fill the composer". */
+declare function suggestionDraft(suggestion: QuickReply): PromptDraft;
+/** The suggestion as an ordinary human message: one plain-text part, nothing else. */
+declare function suggestionMessage(suggestion: QuickReply): SendInput;
+
 /** What a custom approval renderer gets besides the record. */
 interface ApprovalRenderContext {
     /** Whether this is THE actionable item: the same rule the default card gets. */
@@ -468,6 +515,16 @@ interface AgentThreadProps {
     chat?: {
         retry?: (turnId: string) => Promise<unknown>;
     };
+    /**
+     * Quick replies (controlled): chips under the agent's last reply. Pass
+     * `chat.suggestions`. Shown only with `onSuggest`, and never while a turn is
+     * running or a human decision is pending.
+     */
+    suggestions?: readonly QuickReply[];
+    /** A pick: fill the composer (`suggestionDraft`) or send it (`chat.sendSuggestion`). Never a decision. */
+    onSuggest?: (suggestion: QuickReply) => void;
+    /** Hide the chips for the host's own decision states (an approval-queue modal, say). Controlled. */
+    suggestionsHidden?: boolean;
 }
 /**
  * The thread, on ONE windowing and follow model: react-fancy's VirtualList,
@@ -587,6 +644,13 @@ interface AgentThreadApi extends ThreadSnapshot {
      * transport cannot retry. Pass the hook to AgentThread as `chat` and its Retry uses this.
      */
     retry: (turnId: string) => Promise<SendResult>;
+    /**
+     * The newest settled turn's quick replies (fancy-chat-js `state.suggestions`), or
+     * none. Pass to AgentThread `suggestions`.
+     */
+    suggestions: QuickReply[];
+    /** Sends a quick reply as an ordinary human message (one plain-text part). Never a decision or an answer. */
+    sendSuggestion: (suggestion: QuickReply) => Promise<SendResult>;
 }
 /**
  * One engine for a chat surface: seq dedupe, gap repair, the shared reducer and
@@ -644,4 +708,4 @@ interface UndoCountdownProps {
  */
 declare function UndoCountdown({ entry, onRevert, now: fixedNow, tickMs, totalMs, labels: l }: UndoCountdownProps): ReactNode;
 
-export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type ApprovalRenderContext, type ApprovalRenderer, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, serializePill, useAgentThread };
+export { type ActivityEntry, ActivityTimeline, type ActivityTimelineProps, AgentComposer, type AgentComposerProps, type AgentComposerSendInput, AgentThread, type AgentThreadApi, type AgentThreadProps, ApprovalCard, type ApprovalCardProps, type ApprovalDecisionInput, type ApprovalRenderContext, type ApprovalRenderer, type BackendCapabilities, type CancelOutcome, ChatLabels, type ChatTransport, type ConnectionState, EMPTY_PROMPT_DRAFT, type HttpTransportOptions, type IntervalOptions, ModelError, type ModelErrorProps, PartViewProps, type PillRef, PlanRow, type PlanRowProps, type QuestionAnswerInput, QuestionForm, type QuestionFormProps, QueueBar, type QueueBarProps, QuickReplies, type QuickRepliesProps, type QuickReply, type SendInput, type SendOutcome, type SendResult, type SubscribeHandlers, type SurfaceLayout, type SurfaceProfile, ThinkingBlock, type ThinkingBlockProps, type ThreadSnapshot, type ThreadStore, type ThreadStoreOptions, type ToolOutputResolver, ToolRow, type ToolRowProps, type TransportMode, type TriggerDefinition, type TriggerRegistry, UndoCountdown, type UndoCountdownProps, type UseAgentThreadOptions, actionableIn, createHttpTransport, createThreadStore, createTriggerRegistry, defineSurfaceProfile, profileAllowsPart, queuedMessages, quickRepliesHidden, serializePill, suggestionDraft, suggestionMessage, suggestionsOf, useAgentThread };

@@ -65,6 +65,8 @@ export interface ChatLabels {
   turnFailed: (reason: string | null) => string;
   turnRefused: string;
   turnRetry: string;
+  /** The quick-reply chips' group label. */
+  quickReplies: string;
 }
 
 export const DEFAULT_LABELS: ChatLabels = {
@@ -152,6 +154,7 @@ export const DEFAULT_LABELS: ChatLabels = {
   turnFailed: (reason) => (reason ? `The agent stopped: ${reason}` : "The agent stopped with an error."),
   turnRefused: "The agent declined this request.",
   turnRetry: "Retry",
+  quickReplies: "Suggested replies",
 };
 
 export function mergeLabels(labels?: Partial<ChatLabels>): ChatLabels {

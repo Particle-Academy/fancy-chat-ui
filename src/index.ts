@@ -34,6 +34,15 @@ export { AgentThread, type AgentThreadProps, type ApprovalRenderContext, type Ap
 export { AgentComposer, EMPTY_PROMPT_DRAFT, type AgentComposerProps, type AgentComposerSendInput, type SendOutcome } from "./AgentComposer";
 export { useAgentThread, type AgentThreadApi, type UseAgentThreadOptions } from "./useAgentThread";
 export { actionableIn } from "./actionable";
+export {
+  QuickReplies,
+  quickRepliesHidden,
+  suggestionDraft,
+  suggestionMessage,
+  suggestionsOf,
+  type QuickRepliesProps,
+  type QuickReply,
+} from "./QuickReplies";
 export { QueueBar, queuedMessages, type QueueBarProps } from "./QueueBar";
 export { UndoCountdown, type UndoCountdownProps } from "./UndoCountdown";
 export { createTriggerRegistry, serializePill, type PillRef, type TriggerDefinition, type TriggerRegistry } from "./triggers";

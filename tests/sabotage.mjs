@@ -163,6 +163,20 @@ const MUTATIONS = [
   ["title URI repeated", "src/knowledge/FactsExplorer.tsx", "p.uri === title ? \"\" : p.uri", "p.uri"],
   ["sourceTitle of any type", "src/knowledge/shapes.ts", "(v.sourceTitle === undefined || str(v.sourceTitle)) &&", ""],
   ["prism-graph imported at runtime", "src/knowledge/shapes.ts", "import type { Fact, FactStatus as PrismFactStatus, ListedChunk, ListedSource, ListingPage } from \"@particle-academy/prism-graph\";", "import type { Fact, FactStatus as PrismFactStatus, ListedChunk, ListedSource, ListingPage } from \"@particle-academy/prism-graph\";\nimport { isTrust as _isTrust } from \"@particle-academy/prism-graph\";\nexport const __trust = _isTrust;"],
+  // Quick replies (CC-fancy-0065)
+  ["chips while a turn runs", "src/QuickReplies.tsx", 'if (state.turns.some((t) => t.state !== "settled")) return true;', ";"],
+  ["chips over a pending approval", "src/QuickReplies.tsx", 'if (state.approvals.some((a) => a.state === "pending" || a.state === "deciding")) return true;', ";"],
+  ["chips over an open question", "src/QuickReplies.tsx", 'if (state.questions.some((q) => (q.state ?? "open") === "open")) return true;', ";"],
+  ["host cannot hide chips", "src/QuickReplies.tsx", "if (options.hidden) return true;", ";"],
+  ["chips after the human wrote", "src/QuickReplies.tsx", 'return !last || last.author?.kind === "human";', "return false;"],
+  ["chips without onSuggest", "src/AgentThread.tsx", "{onSuggest && suggestions && suggestions.length > 0 &&", "{suggestions && suggestions.length > 0 &&"],
+  ["chip group label hardcoded", "src/QuickReplies.tsx", "aria-label={labels.quickReplies}", 'aria-label="Suggested replies"'],
+  ["a pick carries more than the suggestion", "src/QuickReplies.tsx", "onClick={() => onSuggest({ id: s.id, text: s.text })}", "onClick={() => onSuggest({ ...s, decision: \"approve\" } as QuickReply)}"],
+  ["arrow keys ignored", "src/QuickReplies.tsx", "chips[next]?.focus();", ";"],
+  ["a stale turn's suggestions read", "src/QuickReplies.tsx", "newest.turnId !== turnId || ", ""],
+  ["malformed suggestion items kept", "src/QuickReplies.tsx", 'typeof item.id === "string" && item.id !== "" && ', ""],
+  ["a sent suggestion carries a tool part", "src/QuickReplies.tsx", 'return { parts: [{ id: "p1", kind: "text", format: "plain", text: suggestion.text }] };', 'return { parts: [{ id: "p1", kind: "text", format: "plain", text: suggestion.text }, { id: "p2", kind: "tool-call", name: suggestion.text }] };'],
+  ["sendSuggestion decides", "src/useAgentThread.ts", "transport.send(suggestionMessage(suggestion))", "transport.decide(suggestion.id, { optionId: suggestion.id })"],
 ];
 
 function runSuite() {

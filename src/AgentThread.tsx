@@ -11,6 +11,7 @@ import { HiddenHitl, PartView, type PartViewProps } from "./PartView";
 import type { SurfaceProfile } from "./profile";
 import { UndoCountdown } from "./UndoCountdown";
 import { QuestionForm, type QuestionAnswerInput } from "./QuestionForm";
+import { QuickReplies, quickRepliesHidden, type QuickReply } from "./QuickReplies";
 
 /** What a custom approval renderer gets besides the record. */
 export interface ApprovalRenderContext {
@@ -98,6 +99,16 @@ export interface AgentThreadProps {
    * failed turn to `chat.retry`, which re-sends that turn's original message.
    */
   chat?: { retry?: (turnId: string) => Promise<unknown> };
+  /**
+   * Quick replies (controlled): chips under the agent's last reply. Pass
+   * `chat.suggestions`. Shown only with `onSuggest`, and never while a turn is
+   * running or a human decision is pending.
+   */
+  suggestions?: readonly QuickReply[];
+  /** A pick: fill the composer (`suggestionDraft`) or send it (`chat.sendSuggestion`). Never a decision. */
+  onSuggest?: (suggestion: QuickReply) => void;
+  /** Hide the chips for the host's own decision states (an approval-queue modal, say). Controlled. */
+  suggestionsHidden?: boolean;
 }
 
 type ListRow = { id: string; row: Row | null; group?: ActivityEntry[] };
@@ -148,6 +159,9 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
     activity = "rows",
     onRetryTurn,
     chat,
+    suggestions,
+    onSuggest,
+    suggestionsHidden,
   } = props;
   const chatRetry = chat?.retry;
   const retryTurn = onRetryTurn ?? (chatRetry ? (turnId: string) => void chatRetry(turnId) : undefined);
@@ -445,6 +459,11 @@ export function AgentThread(props: AgentThreadProps): ReactNode {
         onScrollToIdResolved={onScrollToIdResolved}
         anchorOnPrepend
       />
+      {onSuggest && suggestions && suggestions.length > 0 && !quickRepliesHidden(state, { hidden: suggestionsHidden }) ? (
+        <div className="px-3 py-1.5">
+          <QuickReplies suggestions={suggestions} onSuggest={onSuggest} labels={props.labels} />
+        </div>
+      ) : null}
       {lastTurn ? (
         <div className="px-3 py-1">
           <ModelError turn={lastTurn} onRetry={retryTurn} labels={props.labels} />

@@ -52,6 +52,31 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   | prop | type | default | what it does |
   |---|---|---|---|
   | `attachments` | `boolean` | `true` | passed to react-fancy PromptInput (needs `>=6.28.0`). `false` is for a backend that takes no files: no Attach button, no file input, no drop target, no file paste (text paste still works), and `onSend` always gets `attachments: []` |
+- `AgentThread` quick replies (chips under the agent's last reply; the server makes
+  them, off by default, see fancy-chat-php `suggestions`):
+
+  | prop | type | default | what it does |
+  |---|---|---|---|
+  | `suggestions` | `readonly QuickReply[]` (`{ id, text }`) | none | the chips, controlled. Pass `chat.suggestions` |
+  | `onSuggest` | `(suggestion: QuickReply) => void` | none | a pick. Without it no chips render |
+  | `suggestionsHidden` | `boolean` | `false` | hides the chips for your own decision states (an approval-queue modal, say) |
+
+  ```tsx
+  const chat = useAgentThread({ transport });
+  // send it as an ordinary message...
+  <AgentThread {...rest} suggestions={chat.suggestions} onSuggest={chat.sendSuggestion} suggestionsHidden={queueOpen} />
+  // ...or fill the composer instead
+  <AgentThread {...rest} suggestions={chat.suggestions} onSuggest={(s) => setDrafts({ ...drafts, [threadId]: suggestionDraft(s) })} />
+  ```
+
+  Chips are hidden while any turn is unsettled, while an approval is pending or a
+  question open, and once the newest message is the human's. Handles:
+  `data-fancy-chat-suggestions` (the group, `role="group"`, labelled by
+  `labels.quickReplies`) and `data-fancy-chat-suggestion="<id>"` (each chip, a real
+  button: Tab, Enter or Space, and the arrow keys between chips). Also exported:
+  `QuickReplies` (the chips alone), `quickRepliesHidden(state, { hidden })`,
+  `suggestionsOf(state)`, `suggestionDraft(s)`, `suggestionMessage(s)`;
+  `useAgentThread` returns `suggestions` and `sendSuggestion`.
 - Building blocks: `PartView`, `ThinkingBlock`, `ToolRow`, `PlanRow`,
   `ActivityTimeline`, `ModelError`, `ApprovalCard`, `QuestionForm`, `QueueBar`,
   `UndoCountdown`, `createTriggerRegistry`, `serializePill`, `defineSurfaceProfile`.
@@ -83,4 +108,9 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   carrying your `ref`. The server never accepts bytes in a message, and a restored
   draft's chips carry no `File`.
 - **Hide Stop when the backend cannot cancel:** `canStop={chat.capabilities?.cancel !== false}`.
+- **A quick reply is only ever a message.** Wire `onSuggest` to `chat.sendSuggestion`
+  (one plain-text part on the message route) or to a composer fill
+  (`suggestionDraft`); never to `decide`, `answer` or a tool. Chip text is model
+  output and renders as plain text. `chat.suggestions` needs a fancy-chat-js with
+  `suggestions.updated` (and a server that sends it); with an older one it is `[]`.
 - **Raw ECharts options render only with `chartPartRenderer({ allowRawOptions: true })`.**

@@ -69,6 +69,8 @@ interface ChatLabels {
     turnFailed: (reason: string | null) => string;
     turnRefused: string;
     turnRetry: string;
+    /** The quick-reply chips' group label. */
+    quickReplies: string;
 }
 declare const DEFAULT_LABELS: ChatLabels;
 declare function mergeLabels(labels?: Partial<ChatLabels>): ChatLabels;

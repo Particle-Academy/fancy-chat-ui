@@ -8,6 +8,31 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Added
+
+- **Quick replies (CC-fancy-0065): chips under the agent's last reply.** `AgentThread`
+  takes `suggestions` (controlled, `{ id, text }[]`), `onSuggest` and
+  `suggestionsHidden`. The chips render only with `onSuggest`, and stay hidden while
+  any turn is unsettled, while an approval is pending or a question open, once the
+  newest message is the human's, and whenever the host sets `suggestionsHidden` (for
+  its own decision states, such as an approval-queue modal). They are real buttons
+  in a `role="group"` labelled by the new `labels.quickReplies` ("Suggested
+  replies"), with the arrow keys moving between them; handles
+  `data-fancy-chat-suggestions` and `data-fancy-chat-suggestion="<id>"`. Text is
+  rendered as plain text, never markdown or HTML.
+  - A pick calls `onSuggest({ id, text })` and nothing else. `useAgentThread` now
+    returns `suggestions` (read from fancy-chat-js `state.suggestions`, only for the
+    newest turn) and `sendSuggestion`, which sends it as an ordinary message (one
+    plain-text part); `suggestionDraft` fills the composer instead. Neither can
+    decide, answer or call a tool.
+  - New exports: `QuickReplies`, `quickRepliesHidden`, `suggestionsOf`,
+    `suggestionDraft`, `suggestionMessage`, and the types `QuickReply`,
+    `QuickRepliesProps`.
+  - **What to do:** nothing; without `onSuggest` nothing renders. If you pass your own
+    complete `ChatLabels` object (not a partial), add `quickReplies`. Chips need a
+    fancy-chat-js and a server that send `suggestions.updated`; with an older one
+    `chat.suggestions` is simply `[]`.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added

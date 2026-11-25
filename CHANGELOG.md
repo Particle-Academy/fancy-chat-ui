@@ -8,6 +8,8 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-25
+
 ### Added
 
 - **Quick replies (CC-fancy-0065): chips under the agent's last reply.** `AgentThread`

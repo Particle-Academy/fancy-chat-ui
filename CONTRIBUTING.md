@@ -77,6 +77,14 @@ reads prism-graph's TYPES (`import type` only: a runtime import would pull its
     human's, or the host's `suggestionsHidden` is set. `suggestionsOf` reads
     `state.suggestions` defensively (the devDependency fancy-chat-js may predate it).
 
+14. **Interval mode waits a bounded window for late quick replies.** The server makes
+    them in a job after the settle, so after the newest turn settles `completed` the
+    store's `suggestionsDue` keeps interval polling going until that turn's
+    `suggestions.updated` arrives or `interval.suggestionsMs` (15000) passes, the last
+    poll landing on the bound. A settle in the first answer (history) is dated by its
+    own `at`, so loading an old thread opens no window.
+    `tests/interval-late-quick-replies.test.tsx`.
+
 ## Dev dependencies
 
 `@particle-academy/react-fancy` (`^6.28.0`) and `@particle-academy/fancy-chat-js`

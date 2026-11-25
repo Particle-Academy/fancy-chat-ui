@@ -125,6 +125,10 @@ into Prism media for Harness, after the host's own authorization check.
   - only while a turn is pending, running or cancelling, plus `graceMs` (4000) after
     any action you take through the transport (send, decide, answer, cancel, unsend,
     revert), which also polls at once;
+  - after the newest turn settles `completed`, for up to `suggestionsMs` (15000,
+    fancy-chat-php's `suggestions.timeout_seconds`) more, until that turn's quick
+    replies (`suggestions.updated`, made by a job after the settle) arrive; `0` turns
+    this off. A thread loaded long after its last turn opens no such window;
   - every `activeMs` (1500) after a poll that brought events, growing by
     `emptyBackoff` (1.5) per empty answer up to `maxActiveMs` (10000);
   - after an error, doubling from `activeMs` up to `maxBackoffMs` (30000);

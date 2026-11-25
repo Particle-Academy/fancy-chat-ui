@@ -73,6 +73,14 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
   let repairing = false;
   let running = false;
   let users = 0;
+  // Quick replies are generated AFTER a turn settles (a separate server job), so
+  // interval mode keeps polling for them a while. This is the newest turn that
+  // settled `completed` and whose `suggestions.updated` has not arrived, with the
+  // time it settled: when this client saw it, or for a settle in the first answer
+  // (history from before this page) the event's own time, so an old turn opens
+  // no window.
+  let suggestionsDue: { turnId: string; since: number } | null = null;
+  let answers = 0;
 
   const publish = (patch: Partial<ThreadSnapshot>, changedRows: boolean) => {
     snapshot = {
@@ -123,7 +131,33 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
     }
   };
 
-  function ingest(events: ChatEvent[]) {
+  const turnIdOf = (event: ChatEvent): string | null =>
+    typeof event.data?.turnId === "string" ? (event.data.turnId as string) : (event.turnId ?? null);
+
+  const trackSuggestions = (event: ChatEvent, history: boolean) => {
+    const turnId = turnIdOf(event);
+    if (event.type === "suggestions.updated") {
+      if (suggestionsDue && suggestionsDue.turnId === turnId) suggestionsDue = null;
+      return;
+    }
+    if (event.type !== "turn.settled" || !turnId) return;
+    const newest = state.turns.length > 0 ? state.turns[state.turns.length - 1] : undefined;
+    if (!newest || newest.turnId !== turnId || newest.state !== "settled" || newest.outcome !== "completed") return;
+    const at = Date.parse(event.at);
+    suggestionsDue = { turnId, since: history ? (Number.isFinite(at) ? Math.min(at, Date.now()) : Number.NEGATIVE_INFINITY) : Date.now() };
+  };
+
+  const dueNow = (): number | null => {
+    if (!suggestionsDue) return null;
+    const newest = state.turns.length > 0 ? state.turns[state.turns.length - 1] : undefined;
+    if (!newest || newest.turnId !== suggestionsDue.turnId || newest.state !== "settled") return null;
+    // A snapshot jump may already carry them.
+    const projected = (state as ThreadState & { suggestions?: { turnId?: unknown } | null }).suggestions;
+    if (projected && projected.turnId === suggestionsDue.turnId) return null;
+    return suggestionsDue.since;
+  };
+
+  function ingest(events: ChatEvent[], history = false) {
     const r = ingestEvents(log, events);
     log = r.log;
     let dropped = 0;
@@ -146,6 +180,7 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
       }
       const illegal = state.illegal - before;
       if (illegal > 0) refused(event, "illegal under the contract");
+      else trackSuggestions(event, history);
       dropped += illegal;
     }
     const changed = r.applied.length > 0;
@@ -159,13 +194,20 @@ export function createThreadStore(options: ThreadStoreOptions): ThreadStore {
       users += 1;
       if (running) return;
       running = true;
+      answers = 0;
       stopSub = options.transport.subscribe({
         after: () => log.lastSeq,
-        onEvents: ingest,
+        // The first answer after start is the thread's history: its settles are dated
+        // by their own `at`, not by when this page happened to load them.
+        onEvents: (events) => ingest(events, answers <= 1),
         onMode: (mode) => publish({ mode }, false),
         onConnection: (connection) => publish({ connection }, false),
         onError: (error) => publish({ error }, false),
-        onHealthy: healthy,
+        onHealthy: () => {
+          answers += 1;
+          healthy();
+        },
+        suggestionsDue: dueNow,
         // A turn in flight: what interval mode polls for. A parked turn waits on a
         // human, whose action wakes the transport, so it does not count.
         active: () => state.turns.some((t) => t.state === "pending" || t.state === "running" || t.state === "cancelling"),

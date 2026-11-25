@@ -8,6 +8,26 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Quick replies never reached a page on the interval (polling) transport.**
+  fancy-chat-php generates them in a separate job AFTER the turn settles, but
+  `mode: "interval"` stopped polling the moment the newest turn settled (with
+  `idleMs` null by default, and `graceMs` only after a local action), so
+  `suggestions.updated` landed after polling had ended and the chips never showed.
+  Interval mode now keeps polling after the newest turn settles `completed`, with
+  its usual back-off, until that turn's `suggestions.updated` arrives (an empty list
+  counts) or a bounded window passes, with the last poll on the bound. It never
+  polls forever, opens no window after a failed, refused or cancelled turn, and a
+  thread loaded long after its last turn opens none either.
+  - New option `interval.suggestionsMs`, default `15000` (fancy-chat-php's
+    `suggestions.timeout_seconds`). Raise it if your server's timeout or queue is
+    slower; `0` restores the old stop-at-settle behaviour.
+  - New optional `SubscribeHandlers.suggestionsDue`, which the thread store supplies.
+    A custom transport can ignore it.
+  - Upgrading: nothing to do. A host that never enables quick replies pays a few
+    backed-off polls after each completed turn; set `suggestionsMs: 0` to avoid them.
+
 ## [0.5.0] - 2026-11-25
 
 ### Added

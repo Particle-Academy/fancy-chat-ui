@@ -136,6 +136,7 @@ function createHttpTransport(options) {
       const maxBackoffMs = iv.maxBackoffMs ?? 3e4;
       const graceMs = iv.graceMs ?? 4e3;
       const idleMs = iv.idleMs ?? null;
+      const suggestionsMs = Math.max(0, iv.suggestionsMs ?? 15e3);
       const pauseWhenHidden = iv.pauseWhenHidden ?? true;
       const doc = globalThis.document;
       const isHidden = () => pauseWhenHidden && doc?.visibilityState === "hidden";
@@ -179,7 +180,9 @@ function createHttpTransport(options) {
           }
           const running = h.active ? h.active() : true;
           const graceLeft = Date.now() + gap - wokeAt <= graceMs;
-          delay = running || graceLeft ? gap : idleMs;
+          const due = suggestionsMs > 0 ? h.suggestionsDue?.() ?? null : null;
+          const waitLeft = due === null ? 0 : due + suggestionsMs - Date.now();
+          delay = running || graceLeft ? gap : waitLeft > 0 ? Math.min(gap, waitLeft) : idleMs;
         } catch (error) {
           if (stopped) return;
           failed(pollPath, error);
@@ -262,6 +265,8 @@ function createThreadStore(options) {
   let repairing = false;
   let running = false;
   let users = 0;
+  let suggestionsDue = null;
+  let answers = 0;
   const publish = (patch, changedRows) => {
     snapshot = {
       ...snapshot,
@@ -302,7 +307,28 @@ function createThreadStore(options) {
       publish({ error }, false);
     }
   };
-  function ingest(events) {
+  const turnIdOf = (event) => typeof event.data?.turnId === "string" ? event.data.turnId : event.turnId ?? null;
+  const trackSuggestions = (event, history) => {
+    const turnId = turnIdOf(event);
+    if (event.type === "suggestions.updated") {
+      if (suggestionsDue && suggestionsDue.turnId === turnId) suggestionsDue = null;
+      return;
+    }
+    if (event.type !== "turn.settled" || !turnId) return;
+    const newest = state.turns.length > 0 ? state.turns[state.turns.length - 1] : void 0;
+    if (!newest || newest.turnId !== turnId || newest.state !== "settled" || newest.outcome !== "completed") return;
+    const at = Date.parse(event.at);
+    suggestionsDue = { turnId, since: history ? Number.isFinite(at) ? Math.min(at, Date.now()) : Number.NEGATIVE_INFINITY : Date.now() };
+  };
+  const dueNow = () => {
+    if (!suggestionsDue) return null;
+    const newest = state.turns.length > 0 ? state.turns[state.turns.length - 1] : void 0;
+    if (!newest || newest.turnId !== suggestionsDue.turnId || newest.state !== "settled") return null;
+    const projected = state.suggestions;
+    if (projected && projected.turnId === suggestionsDue.turnId) return null;
+    return suggestionsDue.since;
+  };
+  function ingest(events, history = false) {
     const r = ingestEvents(log, events);
     log = r.log;
     let dropped = 0;
@@ -322,6 +348,7 @@ function createThreadStore(options) {
       }
       const illegal = state.illegal - before;
       if (illegal > 0) refused(event, "illegal under the contract");
+      else trackSuggestions(event, history);
       dropped += illegal;
     }
     const changed = r.applied.length > 0;
@@ -334,13 +361,20 @@ function createThreadStore(options) {
       users += 1;
       if (running) return;
       running = true;
+      answers = 0;
       stopSub = options.transport.subscribe({
         after: () => log.lastSeq,
-        onEvents: ingest,
+        // The first answer after start is the thread's history: its settles are dated
+        // by their own `at`, not by when this page happened to load them.
+        onEvents: (events) => ingest(events, answers <= 1),
         onMode: (mode) => publish({ mode }, false),
         onConnection: (connection) => publish({ connection }, false),
         onError: (error) => publish({ error }, false),
-        onHealthy: healthy,
+        onHealthy: () => {
+          answers += 1;
+          healthy();
+        },
+        suggestionsDue: dueNow,
         // A turn in flight: what interval mode polls for. A parked turn waits on a
         // human, whose action wakes the transport, so it does not count.
         active: () => state.turns.some((t) => t.state === "pending" || t.state === "running" || t.state === "cancelling")

@@ -57,11 +57,13 @@ describe('createHttpTransport mode: "interval"', () => {
     store.stop();
   });
 
-  it("keeps polling while a turn runs, at activeMs, and stops once it settles", async () => {
+  // The quick-reply window after a `completed` settle is covered in
+  // interval-late-quick-replies.test.tsx; here it is off, to pin the settle itself.
+  it("keeps polling while a turn runs, at activeMs, and stops once it settles (quick-reply window off)", async () => {
     const fetch = server((n) =>
       n === 0 ? [ev(1, "turn.started", { turnId: "u_1" }), ev(2, "turn.transition", { turnId: "u_1", action: "start" })] : n === 3 ? [ev(3, "turn.settled", { turnId: "u_1", action: "finish" })] : [],
     );
-    const t = createHttpTransport({ baseUrl: "/c", threadId: "t_1", fetch: fetch as never, mode: "interval", interval: { activeMs: 1000, emptyBackoff: 1, graceMs: 0 } });
+    const t = createHttpTransport({ baseUrl: "/c", threadId: "t_1", fetch: fetch as never, mode: "interval", interval: { activeMs: 1000, emptyBackoff: 1, graceMs: 0, suggestionsMs: 0 } });
     const store = createThreadStore({ transport: t });
     store.start();
     await vi.advanceTimersByTimeAsync(0);

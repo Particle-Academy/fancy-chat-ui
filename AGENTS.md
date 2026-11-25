@@ -77,6 +77,12 @@ key; MCP id `fancy-ui`). This package is listed there: find it with
   `QuickReplies` (the chips alone), `quickRepliesHidden(state, { hidden })`,
   `suggestionsOf(state)`, `suggestionDraft(s)`, `suggestionMessage(s)`;
   `useAgentThread` returns `suggestions` and `sendSuggestion`.
+
+  The server makes quick replies in a job AFTER the turn settles. With
+  `mode: "interval"` the transport keeps polling after a `completed` settle until
+  they arrive, for up to `interval.suggestionsMs` (default 15000, the server's
+  `suggestions.timeout_seconds`; `0` turns it off). You need no `idleMs` and no
+  polling loop of your own; match `suggestionsMs` to a longer server timeout.
 - Building blocks: `PartView`, `ThinkingBlock`, `ToolRow`, `PlanRow`,
   `ActivityTimeline`, `ModelError`, `ApprovalCard`, `QuestionForm`, `QueueBar`,
   `UndoCountdown`, `createTriggerRegistry`, `serializePill`, `defineSurfaceProfile`.

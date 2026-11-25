@@ -8,6 +8,8 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-25
+
 ### Fixed
 
 - **Quick replies never reached a page on the interval (polling) transport.**
